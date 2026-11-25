@@ -207,7 +207,8 @@ nav.tabs .menos{display:none}
 /* ---------- marca: en Inicio arriba del saludo; en las demás pantallas, arriba del menú ---------- */
 .nav-marca{display:none}
 @media (min-width: 1024px){
-  .nav-marca{display:flex;padding:0 10px 16px;margin:0;white-space:nowrap}
+  .nav-marca{display:flex;padding:0 10px 16px;margin:0;white-space:nowrap;cursor:pointer;border-radius:10px}
+  .nav-marca:hover{opacity:.8}
   body.en-inicio .nav-marca{visibility:hidden}
 }
 .marca-vuela{position:relative;z-index:30;transform-origin:left top}
@@ -216,7 +217,7 @@ nav.tabs .menos{display:none}
 <body>
 <div class="app" id="app"><div class="cargando"><div class="mate"></div>Cargando la planilla…</div></div>
 <nav class="tabs" id="tabs">
-  <div class="marca grande nav-marca" id="navMarca" aria-hidden="true"><i></i>Coriman Yerbas</div>
+  <div class="marca grande nav-marca" id="navMarca" role="link" tabindex="0" title="Ir al inicio" onclick="ir('inicio')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();ir('inicio')}">Coriman Yerbas</div>
   <div class="in">
     <button data-v="inicio"><i class="ti ti-home"></i>Inicio</button>
     <button data-v="ventas"><i class="ti ti-receipt"></i>Ventas</button>
