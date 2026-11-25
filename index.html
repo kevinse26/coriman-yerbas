@@ -185,6 +185,18 @@ nav.tabs button.vender.on{background:var(--hoja-osc)}
 @media (min-width: 2300px){
   html{zoom:1.3}
 }
+
+/* ---------- menú lateral con Más desplegado y bloques con gráficos ---------- */
+nav.tabs .subnav{display:none}
+@media (min-width: 700px){
+  .solo-grande{display:block}
+}
+@media (min-width: 1024px){
+  nav.tabs .subnav{display:flex;font-size:14px;padding:8px 12px 8px 24px;color:var(--gris)}
+  nav.tabs .subnav i{font-size:18px}
+  nav.tabs .subnav.on{color:var(--hoja)}
+  nav.tabs .in{overflow-y:auto;max-height:100%}
+}
 </style>
 </head>
 <body>
@@ -196,6 +208,12 @@ nav.tabs button.vender.on{background:var(--hoja-osc)}
     <button data-v="vender" class="vender"><i class="ti ti-plus"></i>Vender</button>
     <button data-v="clientes"><i class="ti ti-users"></i>Clientes</button>
     <button data-v="mas"><i class="ti ti-dots"></i>Más</button>
+    <button data-v="mas" data-s="balance" class="subnav"><i class="ti ti-chart-bar"></i>Balance</button>
+    <button data-v="mas" data-s="caja" class="subnav"><i class="ti ti-cash"></i>Caja y retiros</button>
+    <button data-v="mas" data-s="lotes" class="subnav"><i class="ti ti-package"></i>Lotes</button>
+    <button data-v="mas" data-s="gastos" class="subnav"><i class="ti ti-receipt-2"></i>Gastos</button>
+    <button data-v="mas" data-s="precios" class="subnav"><i class="ti ti-tag"></i>Precios y stock</button>
+    <button data-v="config" class="subnav"><i class="ti ti-settings"></i>Configuración</button>
   </div>
 </nav>
 <div id="capa"></div>
@@ -449,12 +467,13 @@ function hoja(html, alMontar){
 function cerrarHoja(){ $('#capa').innerHTML = ''; }
 
 /* ------------------------------------------------------------ navegación */
-document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => ir(b.dataset.v));
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => ir(b.dataset.v, b.dataset.s));
 function ir(v, s){ vista = v; sub = s || null; abierto = null; window.scrollTo(0, 0); pintar(); }
 function pintar(){
   if (!D) return;
   const nav = $('#tabs'); if (nav && nav.offsetHeight) document.documentElement.style.setProperty('--alto-nav', nav.offsetHeight + 'px');
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === vista));
+  const ancho = matchMedia('(min-width: 1024px)').matches;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === vista && (b.dataset.s ? sub === b.dataset.s : (vista !== 'mas' || !ancho || !sub))));
   const f = {inicio: vInicio, vender: vVender, ventas: vVentas, clientes: vClientes, mas: vMas, config: vConfig}[vista];
   $('#app').innerHTML = avisoRed() + f();
   enlazar();
@@ -539,6 +558,7 @@ function vInicio(){
     </div>`;
   }
   avisos.forEach(a => html += `<div class="aviso ${a[0]}" style="margin-top:8px"><i class="ti ${a[1]}" style="font-size:18px"></i><span>${esc(a[2])}</span></div>`);
+  html += bloqueReparto();
   html += '</div><div class="col cb">';
   if (lote) {
     const pct = lote.paraVender ? Math.min(1, lote.vendido / lote.paraVender) : 0;
@@ -553,6 +573,7 @@ function vInicio(){
   html += `<h2>Stock</h2><div class="list">` + D.productos.map(p => `
     <div class="row"><span>${esc(corto(p.nombre))}</span>
     <span class="${p.stock <= 0 ? 'bad' : p.stock <= 5 ? 'warn' : ''}">${p.stock <= 0 ? 'sin stock' : cant(p.stock) + ' paquetes' + (p.stock <= 5 ? ', reponer' : '')}</span></div>`).join('') + `</div>`;
+  html += bloqueGanancia();
   html += '</div><div class="col cc">';
   if (contactar.length) {
     html += `<h2>Escribirles hoy</h2><div class="list">` + contactar.slice(0, 5).map(c => filaContacto(c)).join('') +
@@ -806,6 +827,27 @@ function graficoLotes(fila){
     <div class="k">${recupero >= 1 ? 'Ya recuperaste lo que pagaste por este lote.' : 'Recuperaste el ' + Math.round(recupero * 100) + '% de lo que pagaste.'}</div>
   </div>`;
 }
+function filaBal(t, v, signo, fuerte){ return `<div class="row"><span${fuerte ? ' style="font-weight:600"' : ''}>${t}</span><span style="font-weight:600;white-space:nowrap">${signo ? `<span class="k" style="margin-right:4px">${signo}</span>` : ''}${v}</span></div>`; }
+function bloqueReparto(){
+  const k = D.caja;
+  const partes = [['En caja', k.enCaja, '#4E7A2E'], ['En yerba sin vender', k.enStock, '#C08A2E'], ['Te deben', k.teDeben, '#3F78B5']];
+  const suma = partes.reduce((a, x) => a + Math.max(0, x[1]), 0) || 1;
+  return `<h2 class="solo-grande">Dónde está la plata</h2>
+  <div class="card solo-grande"><div class="k">Lo que vale tu negocio hoy</div><div class="num">${plata(k.valeNegocio)}</div>
+    <div class="reparto" role="img" aria-label="Cómo se reparte la plata">${partes.filter(x => x[1] > 0).map(x => `<div style="width:${(x[1] / suma * 100).toFixed(1)}%;background:${x[2]}"></div>`).join('')}</div>
+    ${partes.map(x => `<div class="row" style="padding:7px 0"><span><span class="punto" style="background:${x[2]}"></span>${x[0]}</span><span style="white-space:nowrap"><span class="k" style="margin-right:8px">${Math.round(Math.max(0, x[1]) / suma * 100)}%</span><b>${plata(x[1])}</b></span></div>`).join('')}
+    <button class="ok" data-a="irBalance" style="font-weight:600;margin-top:8px">Ver el balance completo</button>
+  </div>`;
+}
+function bloqueGanancia(){
+  const meses = porMes().slice(-6);
+  if (!balMes || !meses.some(x => x.mes === balMes)) balMes = meses.length ? meses[meses.length - 1].mes : null;
+  const sel = meses.find(x => x.mes === balMes);
+  const tope = Math.max(1, ...meses.map(x => Math.abs(x.real)));
+  return `<h2 class="solo-grande">Ganancia</h2>
+  <div class="solo-grande"><div class="chips" style="margin-bottom:8px">${[['mes', 'Por mes'], ['lote', 'Por lote']].map(x => `<button class="chip ${balVista === x[0] ? 'on' : ''}" data-a="balVista" data-v="${x[0]}">${x[1]}</button>`).join('')}</div>
+  ${balVista === 'lote' ? graficoLotes(filaBal) : graficoMeses(meses, sel, tope, filaBal)}</div>`;
+}
 function vBalance(){
   const k = D.caja;
   const partes = [['En caja', k.enCaja, '#4E7A2E'], ['En yerba sin vender', k.enStock, '#C08A2E'], ['Te deben', k.teDeben, '#3F78B5']];
@@ -1055,6 +1097,7 @@ async function accion(a, el){
     case 'wa': { const c = cliente(d.c); return c && c.wa ? abrir(wa(c.wa, c.mensaje)) : hojaCliente(c); }
     case 'cli': case 'editCli': return hojaCliente(cliente(d.c));
     case 'verVentas': return ir('ventas');
+    case 'irBalance': return ir('mas', 'balance');
     case 'verContactar': filtroClientes = 'hoy'; return ir('clientes');
     case 'elegirCli': V.cliente = d.c; return pintar();
     case 'nivelDesc': V.descuento = V.descuento === nivelDesc(cliente(V.cliente)) ? 0 : nivelDesc(cliente(V.cliente)); return pintar();
