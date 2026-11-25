@@ -152,6 +152,9 @@ try { PIN = localStorage.getItem('yerba_pin') || ''; } catch (e) {}
 const CFG = window.YERBA_CFG || null;
 const MODO = ENVIVO ? 'gas' : (CFG && CFG.api ? 'api' : 'mock');
 let TOKEN = '';
+let SESION = '';
+try { SESION = localStorage.getItem('yerba_ses') || ''; } catch (e) {}
+function olvidarSesion(){ SESION = ''; try { localStorage.removeItem('yerba_ses'); } catch (e) {} }
 try { TOKEN = sessionStorage.getItem('yerba_tok') || ''; } catch (e) {}
 function tokenValido(){
   if (!TOKEN) return false;
@@ -170,18 +173,18 @@ function nombreUsuario(){
 }
 function manejarError(m){
   if (m.indexOf('PIN_') >= 0) { olvidarPin(); pedirPin(m.indexOf('BLOQUEADO') >= 0 ? 'Demasiados intentos. Esperá 15 minutos y probá de nuevo.' : 'El PIN no es correcto.'); }
-  else if (m.indexOf('AUTH_') >= 0) { TOKEN = ''; try { sessionStorage.removeItem('yerba_tok'); } catch (e) {} pedirGoogle(m.indexOf('NO_AUTORIZADO') >= 0 ? 'Esa cuenta de Google no tiene permiso para usar la app.' : ''); }
+  else if (m.indexOf('AUTH_') >= 0) { TOKEN = ''; olvidarSesion(); try { sessionStorage.removeItem('yerba_tok'); } catch (e) {} pedirGoogle(m.indexOf('NO_AUTORIZADO') >= 0 ? 'Esa cuenta de Google no tiene permiso para usar la app.' : ''); }
 }
 function llamar(fn, ...args){
   if (MODO === 'mock') return Mock.llamar(fn, args);
   if (MODO === 'gas') return new Promise((ok, mal) => google.script.run.withSuccessHandler(ok).withFailureHandler(e => {
     const m = e && e.message ? e.message : String(e); manejarError(m); mal(m);
   })[fn](PIN, ...args));
-  if (CFG.clientId && !tokenValido()) { manejarError('AUTH_VENCIDO'); return Promise.reject('AUTH_VENCIDO'); }
+  if (CFG.clientId && !SESION && !tokenValido()) { manejarError('AUTH_VENCIDO'); return Promise.reject('AUTH_VENCIDO'); }
   return fetch(CFG.api, { method: 'POST', credentials: 'omit', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ fn: fn, args: args, pin: PIN, token: TOKEN }) })
+    body: JSON.stringify({ fn: fn, args: args, pin: PIN, sesion: SESION, token: tokenValido() ? TOKEN : '' }) })
     .then(r => r.json(), () => { throw 'No se pudo conectar. Revisá internet.'; })
-    .then(j => { if (j.ok) return j.data; manejarError(String(j.error)); throw String(j.error); });
+    .then(j => { if (j.sesion) { SESION = j.sesion; try { localStorage.setItem('yerba_ses', SESION); } catch (e) {} } if (j.ok) return j.data; manejarError(String(j.error)); throw String(j.error); });
 }
 function pedirGoogle(msg){
   $('#tabs').classList.add('oculto'); cerrarHoja();
@@ -201,7 +204,7 @@ function pedirGoogle(msg){
   document.head.appendChild(sc);
 }
 async function arrancar(){
-  if (MODO === 'api' && CFG.clientId && !tokenValido()) return pedirGoogle();
+  if (MODO === 'api' && CFG.clientId && !SESION && !tokenValido()) return pedirGoogle();
   if (MODO !== 'mock' && !PIN) return pedirPin();
   $('#tabs').classList.remove('oculto');
   $('#app').innerHTML = '<div class="cargando"><div class="mate"></div>Cargando la planilla…</div>';
@@ -852,7 +855,8 @@ async function accion(a, el){
     case 'mov': return hojaMov(d.t);
     case 'irCaja': return hojaMov('Aporte');
     case 'salir': if (!confirm('¿Cerrar sesión en este celular? Vas a tener que entrar con Google y poner el PIN de nuevo.')) return;
-      olvidarPin(); TOKEN = ''; try { sessionStorage.removeItem('yerba_tok'); localStorage.removeItem('yerba_nombre'); } catch (e) {}
+      if (MODO === 'api' && SESION) llamar('cerrarSesion').catch(() => {});
+      olvidarSesion(); olvidarPin(); TOKEN = ''; try { sessionStorage.removeItem('yerba_tok'); localStorage.removeItem('yerba_nombre'); } catch (e) {}
       try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch (e) {}
       return arrancar();
     case 'nuevoLote': return hojaLote();
