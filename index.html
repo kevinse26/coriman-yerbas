@@ -22,8 +22,11 @@
   --hoja:#3D5A2A; --hoja-osc:#2C421E; --hoja-suave:#DCE5D2; --kraft:#D8C59A; --kraft-osc:#B9A06B;
   --fondo:#EEF1EA; --papel:#FBFCF9; --tinta:#1E2419; --gris:#6B7266; --linea:#DDE2D6;
   --brasa:#B8442F; --brasa-suave:#F4DED8; --sol:#9A6B12; --sol-suave:#F5EACB; --vacio:#E4E2D9;
+  --borde:#CBD2C3; --sol-texto:#5E420B; --brasa-texto:#6B2418; --toast-accion:#BFD7A6; --tinta2:#3E4639; --nivel-texto:#6B4A0C; --aviso-borde:#E0C27A;
   --display:'Bricolage Grotesque',system-ui,sans-serif; --texto:'Figtree',system-ui,sans-serif;
 }
+:root[data-tema="oscuro"]{--hoja:#9CC77A; --hoja-osc:#86B263; --hoja-suave:#24321C; --kraft:#CDB683; --kraft-osc:#A88E58; --fondo:#121610; --papel:#1C2218; --tinta:#E6EBDF; --gris:#A0A898; --linea:#2B3326; --brasa:#EA8670; --brasa-suave:#3B201A; --sol:#E7B95E; --sol-suave:#362B12; --vacio:#262A23; --borde:#3A4434; --sol-texto:#F0D59A; --brasa-texto:#F5C2B6; --toast-accion:#2C5A12; --tinta2:#C9D1C1; --nivel-texto:#F0D59A; --aviso-borde:#8A6E2E; color-scheme:dark;}
+@media (prefers-color-scheme: dark){:root:not([data-tema="claro"]){--hoja:#9CC77A; --hoja-osc:#86B263; --hoja-suave:#24321C; --kraft:#CDB683; --kraft-osc:#A88E58; --fondo:#121610; --papel:#1C2218; --tinta:#E6EBDF; --gris:#A0A898; --linea:#2B3326; --brasa:#EA8670; --brasa-suave:#3B201A; --sol:#E7B95E; --sol-suave:#362B12; --vacio:#262A23; --borde:#3A4434; --sol-texto:#F0D59A; --brasa-texto:#F5C2B6; --toast-accion:#2C5A12; --tinta2:#C9D1C1; --nivel-texto:#F0D59A; --aviso-borde:#8A6E2E; color-scheme:dark;}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--fondo);color:var(--tinta);font-family:var(--texto);font-size:15px;line-height:1.45}
 button,input,select{font:inherit;color:inherit}
@@ -42,23 +45,23 @@ h2{font-family:var(--display);font-weight:500;font-size:19px;margin:22px 0 8px}
 .row:last-child{border-bottom:0}
 .list{background:var(--papel);border-radius:16px;padding:2px 14px}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{border:1px solid #CBD2C3;background:var(--papel);border-radius:999px;padding:7px 13px;font-size:13.5px;white-space:nowrap}
+.chip{border:1px solid var(--borde);background:var(--papel);border-radius:999px;padding:7px 13px;font-size:13.5px;white-space:nowrap}
 .chip.on{background:var(--hoja);border-color:var(--hoja);color:var(--papel)}
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--hoja);color:var(--papel);border-radius:16px;padding:15px;font-weight:600;font-size:16px;width:100%}
 .btn:active{background:var(--hoja-osc)}
-.btn.sec{background:var(--papel);color:var(--hoja);border:1px solid #CBD2C3}
+.btn.sec{background:var(--papel);color:var(--hoja);border:1px solid var(--borde)}
 .btn.chico{padding:10px;font-size:14px;border-radius:12px}
 .warn{color:var(--sol)} .bad{color:var(--brasa)} .ok{color:var(--hoja)}
 .aviso{display:flex;gap:10px;align-items:flex-start;border-radius:14px;padding:10px 12px;font-size:13.5px}
-.aviso.sol{background:var(--sol-suave);color:#5E420B}
-.aviso.brasa{background:var(--brasa-suave);color:#6B2418}
+.aviso.sol{background:var(--sol-suave);color:var(--sol-texto)}
+.aviso.brasa{background:var(--brasa-suave);color:var(--brasa-texto)}
 .bar{height:8px;background:var(--hoja-suave);border-radius:4px;overflow:hidden}
 .bar>div{height:8px;background:var(--hoja);border-radius:4px}
 label.campo{display:block;background:var(--papel);border-radius:14px;padding:9px 13px}
 label.campo span{display:block;color:var(--gris);font-size:12.5px}
 label.campo input,label.campo select{display:block;width:100%;border:0;background:transparent;font-size:16px;padding:2px 0;outline:none}
 .paquetes{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.pk{position:relative;overflow:hidden;height:112px;border-radius:14px 14px 6px 6px;background:var(--kraft);text-align:left;padding:10px 12px;display:flex;flex-direction:column;justify-content:space-between}
+.pk{color:#1E2419;position:relative;overflow:hidden;height:112px;border-radius:14px 14px 6px 6px;background:var(--kraft);text-align:left;padding:10px 12px;display:flex;flex-direction:column;justify-content:space-between}
 .pk::before{content:"";position:absolute;left:0;right:0;top:0;height:14px;background:var(--kraft-osc);opacity:.45}
 .pk .lleno{position:absolute;left:0;right:0;bottom:0;background:#5E7A3E;opacity:.5;transition:height .4s ease}
 .pk>*:not(.lleno){position:relative}
@@ -84,15 +87,18 @@ nav.tabs button.vender.on{background:var(--hoja-osc)}
 .hoja{background:var(--fondo);width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto}
 .hoja h2{margin-top:0}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:86px;width:max-content;background:var(--tinta);color:var(--papel);border-radius:14px;padding:11px 16px;font-size:14px;z-index:30;display:flex;gap:14px;align-items:center;max-width:92vw}
-.toast button{color:#BFD7A6;font-weight:600}
+.toast button{color:var(--toast-accion);font-weight:600}
 .tachada{color:#9BA095;text-decoration:line-through}
-.mensaje{background:var(--fondo);border-radius:12px;padding:9px 11px;font-size:13.5px;color:#3E4639;margin:8px 0}
+.mensaje{background:var(--fondo);border-radius:12px;padding:9px 11px;font-size:13.5px;color:var(--tinta2);margin:8px 0}
 .cargando{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;height:70vh;color:var(--gris)}
 .mate{width:46px;height:46px;border-radius:50% 50% 45% 45%;background:var(--kraft);position:relative;animation:latir 1.2s ease-in-out infinite}
 .mate::after{content:"";position:absolute;width:5px;height:30px;background:#9AA19A;border-radius:3px;top:-16px;left:27px;transform:rotate(18deg)}
 @keyframes latir{50%{transform:scale(.92)}}
 @media (prefers-reduced-motion:reduce){.mate{animation:none}.pk .lleno{transition:none}}
 .oculto{display:none!important}
+.bloqueo{position:fixed;inset:0;z-index:60;background:var(--fondo);overflow:auto}
+.opcion{font-weight:600;margin-bottom:6px}
+.opcion+.k{margin:-2px 0 8px}
 .marca{display:flex;align-items:center;gap:7px;font-family:var(--display);font-weight:600;font-size:14px;color:var(--hoja);margin-bottom:4px}
 .marca i{width:18px;height:18px;border-radius:50% 50% 45% 45%;background:var(--kraft);position:relative;display:inline-block}
 .marca i::after{content:"";position:absolute;width:2.5px;height:12px;background:#9AA19A;border-radius:2px;top:-7px;left:11px;transform:rotate(18deg)}
@@ -100,16 +106,16 @@ nav.tabs button.vender.on{background:var(--hoja-osc)}
 .marca.grande i{width:26px;height:26px}
 .marca.grande i::after{width:3px;height:17px;top:-10px;left:16px}
 .ini{flex:none;width:38px;height:38px;border-radius:50%;background:var(--hoja-suave);color:var(--hoja);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px}
-.nivel{font-size:11.5px;font-weight:600;border-radius:999px;padding:2px 8px;background:var(--sol-suave);color:#6B4A0C;white-space:nowrap}
+.nivel{font-size:11.5px;font-weight:600;border-radius:999px;padding:2px 8px;background:var(--sol-suave);color:var(--nivel-texto);white-space:nowrap}
 .nivel.vip{background:var(--hoja);color:var(--papel)}
 .pk.poco{box-shadow:inset 0 0 0 2px var(--brasa)}
 .pk.poco .pie span:last-child{color:#7E2A1A;font-weight:700}
-.guardar{position:fixed;left:0;right:0;bottom:var(--alto-nav,68px);z-index:4;padding:10px 16px 8px;background:linear-gradient(rgba(238,241,234,0),var(--fondo) 35%)}
+.guardar{position:fixed;left:0;right:0;bottom:var(--alto-nav,68px);z-index:4;padding:10px 16px 8px;background:linear-gradient(transparent,var(--fondo) 35%)}
 .guardar .btn{max-width:488px;margin:0 auto;box-shadow:0 6px 18px rgba(30,36,25,.18)}
 .reparto{display:flex;height:14px;gap:2px;border-radius:7px;overflow:hidden;margin:10px 0 4px}
 .reparto>div{height:100%}
 .punto{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;vertical-align:-1px}
-.barras{display:flex;align-items:flex-end;gap:10px;height:150px;padding:18px 2px 0;border-bottom:1px solid #CBD2C3}
+.barras{display:flex;align-items:flex-end;gap:10px;height:150px;padding:18px 2px 0;border-bottom:1px solid var(--borde)}
 .barras button{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;min-width:0;position:relative}
 .barras .b{width:100%;max-width:44px;border-radius:4px 4px 0 0;background:var(--hoja);opacity:.45;transition:opacity .15s}
 .barras .b.neg{background:var(--brasa)}
@@ -138,13 +144,29 @@ nav.tabs button.vender.on{background:var(--hoja-osc)}
 
 <script>
 const ENVIVO = typeof google !== 'undefined' && google.script && google.script.run;
+/* Preferencias de este celular (Más → Configuración). */
+const VERSION = '2026.11.25';
+const GUIA_URL = 'https://docs.google.com/document/d/152mhs0PQLR-8Q6UzKP-7ugZpGCis1MEtNQQRyEb5wR0/view';
+let PREF = { tema: 'auto', ocultarAlAbrir: true, pinVolver: 0, medio: 'Transferencia' };
+try { Object.assign(PREF, JSON.parse(localStorage.getItem('yerba_pref') || '{}')); } catch (e) {}
+function guardarPref(){ try { localStorage.setItem('yerba_pref', JSON.stringify(PREF)); } catch (e) {} }
+const mqOscuro = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+function aplicarTema(){
+  const r = document.documentElement;
+  if (PREF.tema === 'auto') r.removeAttribute('data-tema'); else r.setAttribute('data-tema', PREF.tema);
+  const oscuro = PREF.tema === 'oscuro' || (PREF.tema === 'auto' && mqOscuro && mqOscuro.matches);
+  const m = document.querySelector('meta[name="theme-color"]');
+  if (m) { if (!m.dataset.claro) m.dataset.claro = m.content; m.content = oscuro ? '#121610' : m.dataset.claro; }
+}
+aplicarTema();
+if (mqOscuro && mqOscuro.addEventListener) mqOscuro.addEventListener('change', aplicarTema);
 let D = null, vista = 'inicio', sub = null, ocultar = true;
 let balMes = null, balVista = 'mes', balLote = null;
 let filtroVentas = 'todas', filtroClientes = 'todos', busqueda = '', abierto = null;
 let V = nuevaVenta();
-try { ocultar = localStorage.getItem('yerba_ocultar') !== '0'; } catch (e) {}
+try { ocultar = PREF.ocultarAlAbrir ? true : localStorage.getItem('yerba_ocultar') !== '0'; } catch (e) {}
 
-function nuevaVenta(){ return {cliente:'', producto:'', cantidad:1, especial:'', usarEspecial:false, descuento:0, medio:'Transferencia', estado:'Pagado', dia:'hoy', fecha:''}; }
+function nuevaVenta(){ return {cliente:'', producto:'', cantidad:1, especial:'', usarEspecial:false, descuento:0, medio:PREF.medio || 'Transferencia', estado:'Pagado', dia:'hoy', fecha:''}; }
 
 /* ------------------------------------------------------------ sin conexión
  * Cada vez que hay internet se guarda una copia de los datos en el celular. Sin señal, la app abre con esa copia
@@ -198,6 +220,34 @@ if ('serviceWorker' in navigator && !ENVIVO && (location.protocol === 'https:' |
   navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.tipo === 'subidas') { if (D) recargar().catch(() => {}); toast(e.data.n === 1 ? 'Se subió la venta pendiente' : 'Se subieron ' + e.data.n + ' ventas pendientes'); } });
 }
 
+/* ------------------------------------------------------------ PIN al volver a la app */
+function marcarSalida(){ try { localStorage.setItem('yerba_salida', String(Date.now())); } catch (e) {} }
+function revisarBloqueo(){
+  const min = Number(PREF.pinVolver) || 0;
+  if (!min || !PIN || $('#bloqueo')) return;
+  let t = 0; try { t = Number(localStorage.getItem('yerba_salida') || 0); } catch (e) {}
+  if (t && Date.now() - t > min * 60000) bloquear();
+}
+function bloquear(){
+  const d = document.createElement('div'); d.id = 'bloqueo'; d.className = 'bloqueo';
+  d.innerHTML = `<div class="cargando" style="gap:14px;height:100vh"><div class="mate"></div>
+    <h1 style="margin:0;text-align:center">Coriman Yerbas</h1>
+    <div class="sub">Poné el PIN para seguir</div>
+    <label class="campo" style="width:220px;text-align:center"><span>PIN</span><input id="bqPin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" style="text-align:center;font-size:24px;letter-spacing:.3em"></label>
+    <div id="bqErr" class="bad" style="font-size:14px;min-height:20px"></div>
+    <button class="btn" id="bqOk" style="width:220px">Entrar</button></div>`;
+  document.body.appendChild(d);
+  const entrar = () => {
+    if ($('#bqPin').value.trim() === PIN) { d.remove(); try { localStorage.removeItem('yerba_salida'); } catch (e) {} }
+    else { $('#bqErr').textContent = 'El PIN no es correcto.'; $('#bqPin').value = ''; $('#bqPin').focus(); }
+  };
+  $('#bqOk').onclick = entrar;
+  $('#bqPin').onkeydown = e => { if (e.key === 'Enter') entrar(); };
+  setTimeout(() => $('#bqPin') && $('#bqPin').focus(), 100);
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) marcarSalida(); else revisarBloqueo(); });
+window.addEventListener('pagehide', marcarSalida);
+
 /* ------------------------------------------------------------ servidor */
 let PIN = '';
 try { PIN = localStorage.getItem('yerba_pin') || ''; } catch (e) {}
@@ -217,6 +267,7 @@ function nombreUsuario(){
     if (TOKEN) {
       const b = TOKEN.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
       const p = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b), c => c.charCodeAt(0))));
+      if (p.email) { try { localStorage.setItem('yerba_email', p.email); } catch (e) {} }
       const n = p.given_name || String(p.name || '').split(' ')[0];
       if (n) { try { localStorage.setItem('yerba_nombre', n); } catch (e) {} return n; }
     }
@@ -417,7 +468,7 @@ function vInicio(){
   if (k.retiros > 0 || k.reinvertida < 0) {
     const deMas = Math.max(0, -k.reinvertida);
     const faltaLote = Math.max(0, k.proximoLote - (k.enCaja + k.teDeben + pr.ventas));
-    html += `<div class="card" style="margin-top:8px;border:1.5px solid ${deMas || faltaLote ? '#E0C27A' : 'var(--hoja-suave)'}">
+    html += `<div class="card" style="margin-top:8px;border:1.5px solid ${deMas || faltaLote ? 'var(--aviso-borde)' : 'var(--hoja-suave)'}">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600">Lo que sacaste para vos</span><span class="num" style="font-size:20px">${plata(k.retiros)}</span></div>
       ${ocultar ? `<div class="k" style="margin-top:4px">${deMas ? 'Sacaste más de lo que ganó el negocio. Tocá «Ver plata» para ver cuánto poner.' : 'Todo salió de la ganancia: el negocio sigue entero.'}</div>` : `
       ${deMas ? `<div style="font-size:14px;margin-top:6px">Sacaste <b>${plata(deMas)}</b> más de lo que ganó el negocio. Para volver a estar en camino, poné <b>${plata(deMas)}</b>.</div>`
@@ -622,6 +673,7 @@ function hojaCliente(c){
 /* ------------------------------------------------------------ MÁS */
 function vMas(){
   if (sub === 'balance') return vBalance();
+  if (sub === 'config') return vConfig();
   if (sub === 'caja') return vCaja();
   if (sub === 'lotes') return vLotes();
   if (sub === 'gastos') return vGastos();
@@ -633,12 +685,12 @@ function vMas(){
     ${item('caja', 'Caja y retiros', 'Podés retirar ' + plata(D.caja.podesRetirar) + ' sin frenar el negocio', 'ti-cash')}
     ${item('lotes', 'Lotes', lote ? 'Lote ' + lote.id + ' abierto · cargar uno nuevo' : 'Cargar un lote nuevo', 'ti-package')}
     ${item('gastos', 'Gastos', 'Nafta, bolsas, publicidad y otros', 'ti-receipt-2')}
+    ${item('config', 'Configuración', 'Tema, privacidad, ventas y tu cuenta', 'ti-settings')}
     ${item('precios', 'Precios y stock', baldo ? corto(baldo.nombre) + ' a ' + pesos(baldo.precio) : 'Cambiar precios', 'ti-tag')}
   </div>
   <button class="btn sec chico" data-a="recargar" style="margin-top:16px"><i class="ti ti-refresh"></i> Actualizar datos</button>
   <div style="margin-top:28px;text-align:center"><div class="marca" style="justify-content:center"><i></i>Coriman Yerbas</div>
-  <div class="k">Lo que cargás acá queda en la planilla y lo ves también en la compu.</div>
-  <button class="k" data-a="salir" style="margin-top:12px;text-decoration:underline">Cerrar sesión en este celular</button></div>`;
+  <div class="k">Lo que cargás acá queda en la planilla y lo ves también en la compu.</div></div>`;
 }
 function porMes(){
   const meses = {};
@@ -724,6 +776,36 @@ function vBalance(){
     <div class="card"><div class="k">Ganás por paquete</div><div class="num" style="font-size:20px">${D.ventas.length ? plata(gan / Math.max(1, D.ventas.reduce((a, v) => a + v.cantidad, 0))) : '-'}</div><div class="k">en promedio</div></div>
   </div>
   <button class="btn sec chico" data-a="sub" data-s="caja" style="margin-top:14px"><i class="ti ti-cash"></i> Anotar que puse o saqué plata</button>`;
+}
+function vConfig(){
+  const op = (k, v, t) => `<button class="chip ${String(PREF[k]) === String(v) ? 'on' : ''}" data-a="pref" data-k="${k}" data-v="${v}">${t}</button>`;
+  let email = ''; try { email = localStorage.getItem('yerba_email') || ''; } catch (e) {}
+  const nombre = nombreUsuario();
+  const n = PENDIENTES.length;
+  const fila = (t, d, extra) => `<div class="row"><span>${t}${d ? `<div class="k">${d}</div>` : ''}</span>${extra || ''}</div>`;
+  return `${volver()}<h1>Configuración</h1>
+  <h2>Apariencia</h2>
+  <div class="card"><div class="opcion">Tema</div>
+    <div class="chips">${op('tema', 'auto', '<i class="ti ti-device-mobile"></i> Como el celular')}${op('tema', 'claro', '<i class="ti ti-sun"></i> Claro')}${op('tema', 'oscuro', '<i class="ti ti-moon"></i> Oscuro')}</div></div>
+  <h2>Privacidad</h2>
+  <div class="card stack" style="gap:14px">
+    <div><div class="opcion">Al abrir la app, la plata…</div>
+      <div class="chips">${op('ocultarAlAbrir', true, 'Siempre oculta')}${op('ocultarAlAbrir', false, 'Como la dejé')}</div></div>
+    <div><div class="opcion">Pedir el PIN al volver a la app</div><div class="k">Si le prestás el celular a alguien, sin el PIN no ve nada.</div>
+      <div class="chips">${op('pinVolver', 0, 'Nunca')}${op('pinVolver', 5, 'Después de 5 min')}${op('pinVolver', 30, 'Después de 30 min')}</div></div>
+  </div>
+  <h2>Ventas</h2>
+  <div class="card"><div class="opcion">Forma de pago que viene marcada</div>
+    <div class="chips">${['Transferencia', 'Efectivo', 'Mercado Pago'].map(m => op('medio', m, m)).join('')}</div></div>
+  <h2>Cuenta y datos</h2>
+  <div class="list">
+    ${MODO === 'api' || email ? fila('Conectado como', esc(nombre ? nombre + (email ? ' · ' + email : '') : email || 'tu cuenta de Google')) : ''}
+    ${fila('Datos', SIN_RED ? 'Sin conexión · de ' + horaTxt(DATOS_DE) : 'Al día con la planilla', '<button class="chip" data-a="recargar"><i class="ti ti-refresh"></i> Actualizar</button>')}
+    ${fila('Ventas sin subir', n ? n + (n === 1 ? ' venta guardada en el celular' : ' ventas guardadas en el celular') : 'Ninguna', n && !SIN_RED ? '<button class="chip" data-a="subir">Subir ahora</button>' : '')}
+    ${GUIA_URL ? fila('Guía rápida', 'Cómo usar la app y la planilla', '<button class="chip" data-a="guia"><i class="ti ti-external-link"></i> Abrir</button>') : ''}
+    ${fila('Versión', VERSION)}
+  </div>
+  <button class="btn sec" data-a="salir" style="color:var(--brasa);margin-top:16px"><i class="ti ti-logout"></i> Cerrar sesión en este celular</button>`;
 }
 const volver = () => `<button class="chip" data-a="sub" data-s="" style="margin-bottom:6px"><i class="ti ti-chevron-left"></i> Más</button>`;
 function vCaja(){
@@ -919,6 +1001,9 @@ async function accion(a, el){
     case 'abrirCli': abierto = d.c; return pintar();
     case 'nuevoCli': return hojaCliente(null);
     case 'venderA': V = nuevaVenta(); V.cliente = d.c; return ir('vender');
+    case 'pref': { let v = d.v; if (v === 'true' || v === 'false') v = v === 'true'; else if (/^\d+$/.test(v)) v = Number(v);
+      PREF[d.k] = v; guardarPref(); if (d.k === 'tema') aplicarTema(); if (d.k === 'pinVolver' && v) marcarSalida(); return pintar(); }
+    case 'guia': return abrir(GUIA_URL);
     case 'balMes': balMes = d.m; return pintar();
     case 'balLote': balLote = d.l; return pintar();
     case 'balVista': balVista = d.v; return pintar();
@@ -927,13 +1012,13 @@ async function accion(a, el){
     case 'irCaja': return hojaMov('Aporte');
     case 'salir': if (!confirm('¿Cerrar sesión en este celular? Vas a tener que entrar con Google y poner el PIN de nuevo.')) return;
       if (MODO === 'api' && SESION) llamar('cerrarSesion').catch(() => {});
-      olvidarSesion(); olvidarPin(); TOKEN = ''; try { localStorage.removeItem('yerba_copia'); } catch (e) {} if (PUEDE_OFFLINE) bdHacer('cfg', 'readwrite', st => st.delete('cred')).catch(() => {}); try { sessionStorage.removeItem('yerba_tok'); localStorage.removeItem('yerba_nombre'); } catch (e) {}
+      olvidarSesion(); olvidarPin(); TOKEN = ''; try { localStorage.removeItem('yerba_copia'); localStorage.removeItem('yerba_email'); } catch (e) {} if (PUEDE_OFFLINE) bdHacer('cfg', 'readwrite', st => st.delete('cred')).catch(() => {}); try { sessionStorage.removeItem('yerba_tok'); localStorage.removeItem('yerba_nombre'); } catch (e) {}
       try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch (e) {}
       return arrancar();
     case 'nuevoLote': return hojaLote();
     case 'nuevoGasto': return hojaGasto();
     case 'precio': return hojaPrecio(d.p);
-    case 'recargar': el.disabled = true; await recargar(); return toast(SIN_RED ? 'Sin conexión: se muestran los últimos datos' : 'Datos actualizados');
+    case 'recargar': el.disabled = true; try { await recargar(); } catch (e) { return error(e); } return toast(SIN_RED ? 'Sin conexión: se muestran los últimos datos' : 'Datos actualizados');
     case 'subir': { el.disabled = true; const n = await subirPendientes(); await recargar(); return toast(n ? (n === 1 ? 'Se subió la venta pendiente' : 'Se subieron ' + n + ' ventas') : 'No se pudo subir todavía'); }
   }
 }
