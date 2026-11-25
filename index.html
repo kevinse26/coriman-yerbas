@@ -146,6 +146,58 @@ try { ocultar = localStorage.getItem('yerba_ocultar') !== '0'; } catch (e) {}
 
 function nuevaVenta(){ return {cliente:'', producto:'', cantidad:1, especial:'', usarEspecial:false, descuento:0, medio:'Transferencia', estado:'Pagado', dia:'hoy', fecha:''}; }
 
+/* ------------------------------------------------------------ sin conexión
+ * Cada vez que hay internet se guarda una copia de los datos en el celular. Sin señal, la app abre con esa copia
+ * y las ventas quedan en una fila de espera (IndexedDB) que se sube sola cuando vuelve la conexión:
+ * desde la app abierta, o desde sw.js (sincronización en segundo plano) aunque la app esté cerrada. */
+const ERR_RED = 'No se pudo conectar. Revisá internet.';
+let SIN_RED = false, PENDIENTES = [], DATOS_DE = null, SUBIENDO = false;
+const PUEDE_OFFLINE = !ENVIVO && 'indexedDB' in window;
+function hoyLocal(){ const f = new Date(); return f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0') + '-' + String(f.getDate()).padStart(2, '0'); }
+function bd(){ return new Promise((ok, mal) => { const r = indexedDB.open('coriman', 1); r.onupgradeneeded = () => { r.result.createObjectStore('cola', { keyPath: 'id' }); r.result.createObjectStore('cfg'); }; r.onsuccess = () => ok(r.result); r.onerror = () => mal(r.error); }); }
+async function bdHacer(store, modo, fn){ const db = await bd(); return new Promise((ok, mal) => { const tx = db.transaction(store, modo); const q = fn(tx.objectStore(store)); tx.oncomplete = () => ok(q ? q.result : undefined); tx.onerror = () => mal(tx.error); }); }
+const colaTodas = () => PUEDE_OFFLINE ? bdHacer('cola', 'readonly', st => st.getAll()).catch(() => []) : Promise.resolve([]);
+const colaPoner = it => bdHacer('cola', 'readwrite', st => st.put(it));
+const colaSacar = id => bdHacer('cola', 'readwrite', st => st.delete(id));
+function guardarCfgSW(){ if (PUEDE_OFFLINE && MODO === 'api') bdHacer('cfg', 'readwrite', st => st.put({ api: CFG.api, pin: PIN, sesion: SESION }, 'cred')).catch(() => {}); }
+function guardarCopia(){ try { localStorage.setItem('yerba_copia', JSON.stringify({ t: Date.now(), d: D })); } catch (e) {} }
+function leerCopia(){ try { const c = JSON.parse(localStorage.getItem('yerba_copia') || 'null'); return c && c.d ? c : null; } catch (e) { return null; } }
+function pedirSync(){ if ('serviceWorker' in navigator) navigator.serviceWorker.ready.then(r => r.sync ? r.sync.register('subir-ventas') : null).catch(() => {}); }
+function idVenta(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+async function aplicarPendientes(){
+  PENDIENTES = (await colaTodas()).sort((a, b) => a.t - b.t);
+  PENDIENTES.forEach(it => {
+    const v = it.venta, pr = prod(v.producto);
+    if (pr) pr.stock = (Number(pr.stock) || 0) - Number(v.cantidad);
+    D.recientes.unshift({ origen: 'pendiente', fila: 0, idLocal: it.id, pendiente: true, fecha: v.fecha, cliente: v.cliente, producto: v.producto,
+      cantidad: v.cantidad, medio: v.medio, estado: v.estado, descuento: v.descuento, precioEspecial: Number(v.precioEspecial) || 0, anulada: false });
+  });
+}
+async function subirPendientes(){
+  if (!PUEDE_OFFLINE || SUBIENDO) return 0;
+  SUBIENDO = true; let n = 0;
+  try {
+    for (const it of (await colaTodas()).sort((a, b) => a.t - b.t)) {
+      try { await llamar('guardarVenta', it.venta); await colaSacar(it.id); n++; } catch (e) { break; }
+    }
+  } finally { SUBIENDO = false; }
+  return n;
+}
+function horaTxt(f){ if (!f) return ''; const h = String(f.getHours()).padStart(2, '0') + ':' + String(f.getMinutes()).padStart(2, '0'); const d = f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0') + '-' + String(f.getDate()).padStart(2, '0'); return (d === hoyLocal() ? 'hoy ' : f.getDate() + '/' + (f.getMonth() + 1) + ' ') + h; }
+function avisoRed(){
+  if (!SIN_RED && !PENDIENTES.length) return '';
+  const n = PENDIENTES.length, ventas = n + (n === 1 ? ' venta sin subir' : ' ventas sin subir');
+  return `<div class="aviso ${SIN_RED ? 'sol' : ''}" style="margin-bottom:12px;align-items:center;${SIN_RED ? '' : 'background:var(--hoja-suave)'}"><i class="ti ${SIN_RED ? 'ti-wifi-off' : 'ti-cloud-upload'}" style="font-size:18px"></i>
+    <span style="flex:1">${SIN_RED ? 'Sin conexión · datos de ' + horaTxt(DATOS_DE) + '.' + (n ? ' ' + ventas + ': se suben solas cuando vuelva internet.' : ' Podés cargar ventas igual.') : ventas + '.'}</span>
+    ${!SIN_RED && n ? '<button class="chip" data-a="subir">Subir ahora</button>' : ''}</div>`;
+}
+window.addEventListener('online', async () => { const n = await subirPendientes(); if (D) { try { await recargar(); } catch (e) {} } if (n) toast(n === 1 ? 'Se subió la venta pendiente' : 'Se subieron ' + n + ' ventas pendientes'); });
+window.addEventListener('offline', () => { SIN_RED = true; if (!DATOS_DE) DATOS_DE = new Date(); if (D) pintar(); });
+if ('serviceWorker' in navigator && !ENVIVO && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.tipo === 'subidas') { if (D) recargar().catch(() => {}); toast(e.data.n === 1 ? 'Se subió la venta pendiente' : 'Se subieron ' + e.data.n + ' ventas pendientes'); } });
+}
+
 /* ------------------------------------------------------------ servidor */
 let PIN = '';
 try { PIN = localStorage.getItem('yerba_pin') || ''; } catch (e) {}
@@ -183,7 +235,7 @@ function llamar(fn, ...args){
   if (CFG.clientId && !SESION && !tokenValido()) { manejarError('AUTH_VENCIDO'); return Promise.reject('AUTH_VENCIDO'); }
   return fetch(CFG.api, { method: 'POST', credentials: 'omit', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ fn: fn, args: args, pin: PIN, sesion: SESION, token: tokenValido() ? TOKEN : '' }) })
-    .then(r => r.json(), () => { throw 'No se pudo conectar. Revisá internet.'; })
+    .then(r => r.json(), () => { throw ERR_RED; })
     .then(j => { if (j.sesion) { SESION = j.sesion; try { localStorage.setItem('yerba_ses', SESION); } catch (e) {} } if (j.ok) return j.data; manejarError(String(j.error)); throw String(j.error); });
 }
 function pedirGoogle(msg){
@@ -204,11 +256,12 @@ function pedirGoogle(msg){
   document.head.appendChild(sc);
 }
 async function arrancar(){
-  if (MODO === 'api' && CFG.clientId && !SESION && !tokenValido()) return pedirGoogle();
-  if (MODO !== 'mock' && !PIN) return pedirPin();
+  const conCopia = MODO === 'api' && !navigator.onLine && leerCopia();
+  if (!conCopia && MODO === 'api' && CFG.clientId && !SESION && !tokenValido()) return pedirGoogle();
+  if (!conCopia && MODO !== 'mock' && !PIN) return pedirPin();
   $('#tabs').classList.remove('oculto');
   $('#app').innerHTML = '<div class="cargando"><div class="mate"></div>Cargando la planilla…</div>';
-  try { await recargar(); }
+  try { if (navigator.onLine) await subirPendientes(); await recargar(); }
   catch (e) { if (/PIN_|AUTH_/.test(String(e))) return; $('#app').innerHTML = '<div class="cargando"><i class="ti ti-plug-connected-x" style="font-size:36px"></i><div>No se pudo abrir la planilla.</div><div class="k">' + esc(e) + '</div><button class="btn chico" style="width:auto;padding:10px 18px" onclick="location.reload()">Probar de nuevo</button></div>'; }
 }
 function olvidarPin(){ PIN = ''; try { localStorage.removeItem('yerba_pin'); } catch (e) {} }
@@ -232,7 +285,18 @@ function pedirPin(msg){
   $('#inPin').onkeydown = e => { if (e.key === 'Enter') entrar(); };
   setTimeout(() => $('#inPin') && $('#inPin').focus(), 100);
 }
-async function recargar(){ D = await llamar('getDatos'); pintar(); }
+async function recargar(){
+  try {
+    if (MODO === 'api' && !navigator.onLine) throw ERR_RED;
+    D = await llamar('getDatos'); SIN_RED = false; DATOS_DE = null; guardarCopia(); guardarCfgSW();
+  } catch (e) {
+    const c = e === ERR_RED && leerCopia();
+    if (!c) throw e;
+    D = c.d; D.hoy = hoyLocal(); SIN_RED = true; DATOS_DE = new Date(c.t);
+  }
+  await aplicarPendientes();
+  pintar();
+}
 
 /* ------------------------------------------------------------ utilidades */
 const $ = s => document.querySelector(s);
@@ -263,7 +327,7 @@ function toast(msg, deshacer){
   document.querySelectorAll('.toast').forEach(x => x.remove());
   document.body.appendChild(t); setTimeout(() => t.remove(), deshacer ? 6000 : 3200);
 }
-function error(e){ toast(typeof e === 'string' ? e : 'No se pudo guardar. Revisá la conexión y probá de nuevo.'); }
+function error(e){ toast(e === ERR_RED ? 'Sin conexión: esto se puede hacer cuando vuelva internet.' : typeof e === 'string' ? e : 'No se pudo guardar. Revisá la conexión y probá de nuevo.'); }
 
 function hoja(html, alMontar){
   const c = $('#capa');
@@ -281,7 +345,7 @@ function pintar(){
   const nav = $('#tabs'); if (nav && nav.offsetHeight) document.documentElement.style.setProperty('--alto-nav', nav.offsetHeight + 'px');
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === vista));
   const f = {inicio: vInicio, vender: vVender, ventas: vVentas, clientes: vClientes, mas: vMas}[vista];
-  $('#app').innerHTML = f();
+  $('#app').innerHTML = avisoRed() + f();
   enlazar();
 }
 
@@ -453,7 +517,7 @@ function vVentas(){
     <button class="row" style="width:100%;text-align:left" data-a="venta" data-i="${D.recientes.indexOf(x)}">
       <span class="${x.anulada ? 'tachada' : ''}"><span style="font-weight:600">${esc(x.cliente)}</span>
         <div class="k">${cant(x.cantidad)} ${esc(corto(x.producto))}, ${fechaTxt(x.fecha)}${x.precioEspecial ? ', precio especial' : ''}</div></span>
-      <span style="text-align:right;white-space:nowrap" class="${x.anulada ? 'tachada' : ''}">${plata(totalReciente(x))}${x.estado === 'Pendiente' && !x.anulada ? '<div class="k warn">debe</div>' : ''}${x.anulada ? '<div class="k">anulada</div>' : ''}</span>
+      <span style="text-align:right;white-space:nowrap" class="${x.anulada ? 'tachada' : ''}">${plata(totalReciente(x))}${x.estado === 'Pendiente' && !x.anulada ? '<div class="k warn">debe</div>' : ''}${x.anulada ? '<div class="k">anulada</div>' : ''}${x.pendiente ? '<div class="k warn"><i class="ti ti-cloud-off"></i> sin subir</div>' : ''}</span>
     </button>`).join('') : `<div class="row"><span class="sub">${filtroVentas === 'cobrar' ? 'Nadie te debe plata.' : filtroVentas === 'anuladas' ? 'No hay ventas anuladas.' : 'Todavía no hay ventas.'}</span></div>`}</div>
   <div class="k" style="margin-top:8px">Tocá una venta para anularla o marcarla como cobrada.</div>`;
 }
@@ -469,7 +533,14 @@ function editarVenta(x){
   ir('vender');
 }
 function hojaVenta(i){
-  const x = D.recientes[i]; const c = cliente(x.cliente);
+  const x = D.recientes[i];
+  if (x.pendiente) return hoja(`<h2>${esc(x.cliente)}</h2>
+    <div class="sub" style="margin-bottom:12px">${cant(x.cantidad)} ${esc(corto(x.producto))}, ${fechaTxt(x.fecha)}, ${esc(x.medio)}, ${plata(totalReciente(x))}</div>
+    <div class="aviso sol" style="margin-bottom:12px"><i class="ti ti-cloud-off"></i><span>Todavía no se subió a la planilla. Se sube sola cuando haya internet.</span></div>
+    <div class="stack"><button class="btn sec" data-h="borrar" style="color:var(--brasa)">Borrar (la cargué mal)</button><button class="btn sec" data-h="cerrar">Cerrar</button></div>`, cap => {
+      cap.querySelector('[data-h=cerrar]').onclick = cerrarHoja;
+      cap.querySelector('[data-h=borrar]').onclick = async () => { if (!confirm('¿Borrar esta venta? Todavía no está en la planilla.')) return; await colaSacar(x.idLocal); cerrarHoja(); await recargar(); toast('Venta borrada'); };
+    }); const c = cliente(x.cliente);
   hoja(`<h2>${esc(x.cliente)}</h2>
     <div class="sub" style="margin-bottom:12px">${cant(x.cantidad)} ${esc(corto(x.producto))}, ${fechaTxt(x.fecha)}, ${esc(x.medio)}, ${plata(totalReciente(x))}</div>
     <div class="stack">
@@ -856,24 +927,27 @@ async function accion(a, el){
     case 'irCaja': return hojaMov('Aporte');
     case 'salir': if (!confirm('¿Cerrar sesión en este celular? Vas a tener que entrar con Google y poner el PIN de nuevo.')) return;
       if (MODO === 'api' && SESION) llamar('cerrarSesion').catch(() => {});
-      olvidarSesion(); olvidarPin(); TOKEN = ''; try { sessionStorage.removeItem('yerba_tok'); localStorage.removeItem('yerba_nombre'); } catch (e) {}
+      olvidarSesion(); olvidarPin(); TOKEN = ''; try { localStorage.removeItem('yerba_copia'); } catch (e) {} if (PUEDE_OFFLINE) bdHacer('cfg', 'readwrite', st => st.delete('cred')).catch(() => {}); try { sessionStorage.removeItem('yerba_tok'); localStorage.removeItem('yerba_nombre'); } catch (e) {}
       try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch (e) {}
       return arrancar();
     case 'nuevoLote': return hojaLote();
     case 'nuevoGasto': return hojaGasto();
     case 'precio': return hojaPrecio(d.p);
-    case 'recargar': el.disabled = true; await recargar(); return toast('Datos actualizados');
+    case 'recargar': el.disabled = true; await recargar(); return toast(SIN_RED ? 'Sin conexión: se muestran los últimos datos' : 'Datos actualizados');
+    case 'subir': { el.disabled = true; const n = await subirPendientes(); await recargar(); return toast(n ? (n === 1 ? 'Se subió la venta pendiente' : 'Se subieron ' + n + ' ventas') : 'No se pudo subir todavía'); }
   }
 }
 async function guardarVenta(bt){
   if (!V.cliente.trim()) return toast('Elegí o escribí el cliente');
   if (!V.producto) return toast('Elegí la yerba');
   if (V.usarEspecial && !(Number(V.especial) > 0)) return toast('Poné el precio especial o sacalo');
-  const fecha = V.dia === 'hoy' ? D.hoy : V.dia === 'ayer' ? sumarDias(D.hoy, -1) : (V.fecha || D.hoy);
+  const hoy = SIN_RED ? hoyLocal() : D.hoy;
+  const fecha = V.dia === 'hoy' ? hoy : V.dia === 'ayer' ? sumarDias(hoy, -1) : (V.fecha || hoy);
   const venta = { fecha, cliente: V.cliente.trim(), producto: V.producto, cantidad: V.cantidad,
     descuento: V.medio === 'Sorteo / regalo' ? 1 : V.descuento, medio: V.medio, estado: V.estado,
-    precioEspecial: V.usarEspecial ? Number(V.especial) : '' };
+    precioEspecial: V.usarEspecial ? Number(V.especial) : '', idLocal: idVenta() };
   bt.disabled = true; bt.textContent = 'Guardando…';
+  if (!V.editando && PUEDE_OFFLINE && MODO !== 'gas' && (SIN_RED || !navigator.onLine)) return guardarSinRed(venta);
   if (V.editando) {
     try {
       await llamar('editarVenta', V.editando.origen, V.editando.fila, venta);
@@ -886,7 +960,17 @@ async function guardarVenta(bt){
     const quien = venta.cliente, era = !cliente(quien);
     V = nuevaVenta(); await recargar(); window.scrollTo(0, 0);
     toast('Venta a ' + quien + ' guardada' + (era ? '. Cliente nuevo agregado' : ''), async () => { await llamar('anularVenta', 'compu', r.fila, true); await recargar(); toast('Venta anulada'); });
-  } catch (e) { bt.disabled = false; pintar(); error(e); }
+  } catch (e) {
+    if (e === ERR_RED && PUEDE_OFFLINE && MODO !== 'gas') return guardarSinRed(venta);
+    bt.disabled = false; pintar(); error(e);
+  }
+}
+async function guardarSinRed(venta){
+  try { await colaPoner({ id: venta.idLocal, t: Date.now(), venta }); }
+  catch (e) { pintar(); return toast('No se pudo guardar en el celular. Probá de nuevo.'); }
+  guardarCfgSW(); pedirSync();
+  V = nuevaVenta(); await recargar(); window.scrollTo(0, 0);
+  toast('Sin señal: la venta quedó guardada en el celular y se sube sola cuando vuelva internet.');
 }
 
 /* ------------------------------------------------------------ datos de ejemplo (solo para probar fuera de Google) */
