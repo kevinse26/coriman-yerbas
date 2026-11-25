@@ -195,6 +195,8 @@ nav.tabs .menos{display:none}
 @media (min-width: 1024px){
   nav.tabs .subnav{display:none;font-size:14px;padding:8px 12px 8px 24px;color:var(--gris)}
   nav.tabs.abierto .subnav{display:flex}
+  nav.tabs .in{align-items:stretch}
+  .app .marca.grande{display:none}
   nav.tabs.abierto .in > button[data-v="mas"]:not([data-s]){display:none}
   nav.tabs.abierto .menos{display:flex;font-size:14px;padding:8px 12px 8px 24px;margin-top:4px;color:var(--gris)}
   nav.tabs .menos i{font-size:18px}
@@ -865,7 +867,14 @@ function bloqueGanancia(){
   const tope = Math.max(1, ...meses.map(x => Math.abs(x.real)));
   return `<h2 class="solo-grande">Ganancia</h2>
   <div class="solo-grande"><div class="chips" style="margin-bottom:8px">${[['mes', 'Por mes'], ['lote', 'Por lote']].map(x => `<button class="chip ${balVista === x[0] ? 'on' : ''}" data-a="balVista" data-v="${x[0]}">${x[1]}</button>`).join('')}</div>
-  ${balVista === 'lote' ? graficoLotes(filaBal) : graficoMeses(meses, sel, tope, filaBal)}</div>`;
+  ${soloBarras(balVista === 'lote' ? graficoLotes(filaBal) : graficoMeses(meses, sel, tope, filaBal))}</div>`;
+}
+function soloBarras(h){
+  const i = h.indexOf('<div class="mesesx">');
+  if (i < 0) return h;
+  const fin = h.indexOf('</div>', i) + 6;
+  return h.slice(0, fin).replace('Tocá un mes para ver el detalle.', 'Tocá una barra para ver su número.').replace('Tocá un lote para ver el detalle.', 'Tocá una barra para ver su número.')
+    + '<button class="ok" data-a="irBalance" style="font-weight:600;margin-top:10px">Ver el detalle en Balance</button></div>';
 }
 function vBalance(){
   const k = D.caja;
