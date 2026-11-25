@@ -385,7 +385,7 @@ function filaContacto(c){
 }
 
 /* ------------------------------------------------------------ VENDER */
-function textoGuardar(p, total){ return p ? (V.medio === 'Sorteo / regalo' ? 'Guardar regalo' : 'Guardar venta · ' + pesos(total)) : 'Guardar venta'; }
+function textoGuardar(p, total){ const t = V.editando ? 'Guardar cambios' : 'Guardar venta'; return p ? (V.medio === 'Sorteo / regalo' ? (V.editando ? t : 'Guardar regalo') : t + ' · ' + pesos(total)) : t; }
 function vVender(){
   const c = cliente(V.cliente);
   const max = Math.max(5, ...D.productos.map(p => p.stock));
@@ -396,7 +396,8 @@ function vVender(){
   const total = unit * V.cantidad;
   const sugs = V.cliente && !c ? D.clientes.filter(x => norm(x.nombre).includes(norm(V.cliente))).slice(0, 6) : [];
   const nd = nivelDesc(c);
-  return `<h1>Vender</h1>
+  return `${V.editando ? `<div style="display:flex;justify-content:space-between;align-items:center"><h1>Editar venta</h1><button class="chip" data-a="cancelarEdicion"><i class="ti ti-x"></i> Cancelar</button></div>
+  <div class="aviso" style="background:var(--hoja-suave);margin-bottom:10px"><i class="ti ti-pencil ok"></i><span>Corregí lo que esté mal y tocá «Guardar cambios». ${V.editando.origen === 'celular' ? 'Como vino del formulario, la original queda anulada y se guarda la corregida.' : 'Se cambia en la misma fila de la planilla.'}</span></div>` : '<h1>Vender</h1>'}
   <label class="campo"><span>Cliente</span><input id="inCliente" autocomplete="off" placeholder="Escribí el nombre" value="${esc(V.cliente)}"></label>
   ${c ? `<div class="chips" style="margin-top:6px"><span class="chip">${esc(nivelTxt(c)) || 'Cliente'}</span>${c.compras ? `<span class="chip">${c.compras} ${c.compras === 1 ? 'compra' : 'compras'}</span>` : ''}${nd && !V.usarEspecial ? `<button class="chip ${V.descuento === nd ? 'on' : ''}" data-a="nivelDesc">Aplicar ${Math.round(nd * 100)}%</button>` : ''}</div>` : ''}
   <div id="sugs">${sugs.length || (V.cliente && !c) ? `<div class="sugs">${sugs.map(x => `<button data-a="elegirCli" data-c="${esc(x.nombre)}"><span>${esc(x.nombre)}</span><span class="k">${x.compras} compras</span></button>`).join('')}
@@ -453,12 +454,24 @@ function vVentas(){
     </button>`).join('') : `<div class="row"><span class="sub">${filtroVentas === 'cobrar' ? 'Nadie te debe plata.' : filtroVentas === 'anuladas' ? 'No hay ventas anuladas.' : 'Todavía no hay ventas.'}</span></div>`}</div>
   <div class="k" style="margin-top:8px">Tocá una venta para anularla o marcarla como cobrada.</div>`;
 }
+function editarVenta(x){
+  V = nuevaVenta();
+  const esp = Number(x.precioEspecial) > 0;
+  Object.assign(V, { cliente: x.cliente, producto: x.producto, cantidad: Number(x.cantidad) || 1,
+    descuento: esp ? 0 : (Number(x.descuento) >= 1 ? 0 : Number(x.descuento) || 0),
+    medio: Number(x.descuento) >= 1 ? 'Sorteo / regalo' : (x.medio || 'Transferencia'), estado: x.estado || 'Pagado',
+    especial: esp ? String(x.precioEspecial) : '', usarEspecial: esp,
+    dia: x.fecha === D.hoy ? 'hoy' : x.fecha === sumarDias(D.hoy, -1) ? 'ayer' : 'otra', fecha: x.fecha,
+    editando: { origen: x.origen, fila: x.fila, cliente: x.cliente } });
+  ir('vender');
+}
 function hojaVenta(i){
   const x = D.recientes[i]; const c = cliente(x.cliente);
   hoja(`<h2>${esc(x.cliente)}</h2>
     <div class="sub" style="margin-bottom:12px">${cant(x.cantidad)} ${esc(corto(x.producto))}, ${fechaTxt(x.fecha)}, ${esc(x.medio)}, ${plata(totalReciente(x))}</div>
     <div class="stack">
       ${x.estado === 'Pendiente' && !x.anulada && x.origen === 'compu' ? `<button class="btn" data-h="pagada">Marcar como cobrada</button>` : ''}
+      ${x.anulada ? '' : `<button class="btn sec" data-h="editar"><i class="ti ti-pencil"></i> Editar venta</button>`}
       ${c && c.wa ? `<button class="btn sec" data-h="wa"><i class="ti ti-brand-whatsapp"></i> Escribirle</button>` : ''}
       <button class="btn sec" data-h="anular" style="color:${x.anulada ? 'var(--hoja)' : 'var(--brasa)'}">${x.anulada ? 'Volver a contarla' : 'Anular venta (prueba o error)'}</button>
       <button class="btn sec" data-h="cerrar">Cerrar</button>
@@ -467,6 +480,7 @@ function hojaVenta(i){
       const a = b.dataset.h;
       if (a === 'cerrar') return cerrarHoja();
       if (a === 'wa') return abrir(wa(c.wa, c.mensaje));
+      if (a === 'editar') { cerrarHoja(); return editarVenta(x); }
       b.disabled = true;
       try {
         if (a === 'pagada') { await llamar('marcarPagada', x.origen, x.fila); cerrarHoja(); toast('Venta marcada como cobrada'); }
@@ -824,6 +838,7 @@ async function accion(a, el){
     case 'estado': V.estado = d.e; return pintar();
     case 'dia': V.dia = d.d; return pintar();
     case 'guardarVenta': return guardarVenta(el);
+    case 'cancelarEdicion': V = nuevaVenta(); return ir('ventas');
     case 'filtroV': filtroVentas = d.f; return pintar();
     case 'venta': return hojaVenta(Number(d.i));
     case 'filtroC': filtroClientes = d.f; return pintar();
@@ -855,6 +870,13 @@ async function guardarVenta(bt){
     descuento: V.medio === 'Sorteo / regalo' ? 1 : V.descuento, medio: V.medio, estado: V.estado,
     precioEspecial: V.usarEspecial ? Number(V.especial) : '' };
   bt.disabled = true; bt.textContent = 'Guardando…';
+  if (V.editando) {
+    try {
+      await llamar('editarVenta', V.editando.origen, V.editando.fila, venta);
+      V = nuevaVenta(); await recargar(); ir('ventas'); toast('Venta corregida');
+    } catch (e) { bt.disabled = false; pintar(); error(e); }
+    return;
+  }
   try {
     const r = await llamar('guardarVenta', venta);
     const quien = venta.cliente, era = !cliente(quien);
