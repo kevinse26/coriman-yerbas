@@ -139,7 +139,7 @@ nav.tabs button.vender.on{background:var(--hoja-osc)}
 <script>
 const ENVIVO = typeof google !== 'undefined' && google.script && google.script.run;
 let D = null, vista = 'inicio', sub = null, ocultar = true;
-let balMes = null;
+let balMes = null, balVista = 'mes', balLote = null;
 let filtroVentas = 'todas', filtroClientes = 'todos', busqueda = '', abierto = null;
 let V = nuevaVenta();
 try { ocultar = localStorage.getItem('yerba_ocultar') !== '0'; } catch (e) {}
@@ -560,6 +560,41 @@ function porMes(){
   return Object.keys(meses).sort().map(k => Object.assign({ mes: k, real: meses[k].gan - meses[k].gastos }, meses[k]));
 }
 const nombreMes = (k, largo) => { const n = MESES[Number(k.slice(5)) - 1]; const t = largo ? n : n.slice(0, 3); return t.charAt(0).toUpperCase() + t.slice(1); };
+function graficoMeses(meses, sel, tope, fila){
+  return meses.length ? `<div class="card">
+    <div class="k">Ganancia real (después de gastos). Tocá un mes para ver el detalle.</div>
+    <div class="barras">${meses.map(x => `<button data-a="balMes" data-m="${x.mes}" class="${x.mes === balMes ? 'on' : ''}" aria-label="${nombreMes(x.mes, true)}: ganancia ${ocultar ? 'oculta' : pesos(x.real)}">
+      ${x.mes === balMes && !ocultar ? `<span class="v" style="top:${Math.max(0, 100 - Math.abs(x.real) / tope * 100) - 14}%">${pesos(x.real)}</span>` : ''}
+      <div class="b ${x.real < 0 ? 'neg' : ''}" style="height:${Math.max(2, Math.abs(x.real) / tope * 88)}%"></div></button>`).join('')}</div>
+    <div class="mesesx">${meses.map(x => `<span class="${x.mes === balMes ? 'on' : ''}">${nombreMes(x.mes)}</span>`).join('')}</div>
+    ${sel ? `<div style="margin-top:12px;font-weight:600">${nombreMes(sel.mes, true)} ${sel.mes.slice(0, 4)}</div>
+    ${fila('Vendiste', plata(sel.total))}${fila('Ganancia de la yerba', plata(sel.gan))}${sel.gastos ? fila('Gastos', plata(sel.gastos), '−') : ''}${fila('Ganancia real', plata(sel.real), '', true)}
+    <div class="k" style="margin-top:4px">${sel.n} ${sel.n === 1 ? 'venta' : 'ventas'}, ${cant(sel.kg)} kg</div>` : ''}
+  </div>` : '<div class="card sub">Todavía no hay ventas.</div>';
+}
+function graficoLotes(fila){
+  const ls = D.lotes.slice(-6);
+  if (!ls.length) return '<div class="card sub">Todavía no hay lotes.</div>';
+  if (!balLote || !ls.some(x => x.id === balLote)) balLote = (ls.find(x => x.estado === 'Abierto') || ls[ls.length - 1]).id;
+  const sel = ls.find(x => x.id === balLote);
+  const tope = Math.max(1, ...ls.map(x => Math.abs(x.ganancia)));
+  const pct = sel.paraVender ? Math.min(1, sel.vendido / sel.paraVender) : 0;
+  const vendidoPlata = Number(sel.ventas) || D.ventas.filter(v => v.lote === sel.id).reduce((a, v) => a + v.total, 0);
+  const recupero = sel.pagado ? Math.min(1, vendidoPlata / sel.pagado) : 0;
+  return `<div class="card">
+    <div class="k">Ganancia de cada lote, de principio a fin. Tocá un lote para ver el detalle.</div>
+    <div class="barras">${ls.map(x => `<button data-a="balLote" data-l="${esc(x.id)}" class="${x.id === balLote ? 'on' : ''}" aria-label="Lote ${esc(x.id)}: ganancia ${ocultar ? 'oculta' : pesos(x.ganancia)}">
+      ${x.id === balLote && !ocultar ? `<span class="v" style="top:${Math.max(0, 100 - Math.abs(x.ganancia) / tope * 100) - 14}%">${pesos(x.ganancia)}</span>` : ''}
+      <div class="b ${x.ganancia < 0 ? 'neg' : ''}" style="height:${Math.max(2, Math.abs(x.ganancia) / tope * 88)}%"></div></button>`).join('')}</div>
+    <div class="mesesx">${ls.map(x => `<span class="${x.id === balLote ? 'on' : ''}">${esc(x.id)}</span>`).join('')}</div>
+    <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center"><span style="font-weight:600">Lote ${esc(sel.id)}</span><span class="chip ${sel.estado === 'Abierto' ? 'on' : ''}" style="padding:3px 10px">${esc(sel.estado || '')}</span></div>
+    <div class="k">${sel.fecha ? 'Llegó el ' + fechaTxt(sel.fecha) : ''}${sel.proveedor ? ', ' + esc(sel.proveedor) : ''}</div>
+    ${fila('Pagaste', plata(sel.pagado))}${fila('Vendiste', plata(vendidoPlata))}${fila('Ganancia', plata(sel.ganancia), '', true)}${sel.estado === 'Abierto' && sel.valorQueda ? fila('Lo que queda vale', plata(sel.valorQueda)) : ''}
+    <div class="k" style="margin-top:8px">Vendiste ${cant(sel.vendido)} de ${cant(sel.paraVender)} ${unidad()}${sel.sobrante ? ' (incluye ' + cant(sel.sobrante) + ' que sobraron del lote anterior)' : ''}</div>
+    <div class="bar" style="margin:6px 0 4px"><div style="width:${Math.round(pct * 100)}%"></div></div>
+    <div class="k">${recupero >= 1 ? 'Ya recuperaste lo que pagaste por este lote.' : 'Recuperaste el ' + Math.round(recupero * 100) + '% de lo que pagaste.'}</div>
+  </div>`;
+}
 function vBalance(){
   const k = D.caja;
   const partes = [['En caja', k.enCaja, '#4E7A2E'], ['En yerba sin vender', k.enStock, '#C08A2E'], ['Te deben', k.teDeben, '#3F78B5']];
@@ -585,17 +620,9 @@ function vBalance(){
     ${fila('Pusiste de tu bolsillo', plata(k.bolsillo), '+')}${fila('Ganó el negocio', plata(k.gananciaReal), '+')}${fila('Sacaste para vos', plata(k.retiros), '−')}${fila('Vale tu negocio hoy', plata(k.valeNegocio), '=', true)}
   </div>
   ${k.reinvertida < 0 ? `<div class="aviso sol" style="margin-top:8px"><i class="ti ti-alert-triangle"></i><span>${ocultar ? 'Sacaste más de lo que ganó el negocio.' : 'Sacaste ' + plata(-k.reinvertida) + ' más de lo que ganó el negocio. Para volver a estar en camino, poné ' + plata(-k.reinvertida) + '.'}</span></div>` : ''}
-  <h2>Ganancia por mes</h2>
-  ${meses.length ? `<div class="card">
-    <div class="k">Ganancia real (después de gastos). Tocá un mes para ver el detalle.</div>
-    <div class="barras">${meses.map(x => `<button data-a="balMes" data-m="${x.mes}" class="${x.mes === balMes ? 'on' : ''}" aria-label="${nombreMes(x.mes, true)}: ganancia ${ocultar ? 'oculta' : pesos(x.real)}">
-      ${x.mes === balMes && !ocultar ? `<span class="v" style="top:${Math.max(0, 100 - Math.abs(x.real) / tope * 100) - 14}%">${pesos(x.real)}</span>` : ''}
-      <div class="b ${x.real < 0 ? 'neg' : ''}" style="height:${Math.max(2, Math.abs(x.real) / tope * 88)}%"></div></button>`).join('')}</div>
-    <div class="mesesx">${meses.map(x => `<span class="${x.mes === balMes ? 'on' : ''}">${nombreMes(x.mes)}</span>`).join('')}</div>
-    ${sel ? `<div style="margin-top:12px;font-weight:600">${nombreMes(sel.mes, true)} ${sel.mes.slice(0, 4)}</div>
-    ${fila('Vendiste', plata(sel.total))}${fila('Ganancia de la yerba', plata(sel.gan))}${sel.gastos ? fila('Gastos', plata(sel.gastos), '−') : ''}${fila('Ganancia real', plata(sel.real), '', true)}
-    <div class="k" style="margin-top:4px">${sel.n} ${sel.n === 1 ? 'venta' : 'ventas'}, ${cant(sel.kg)} kg</div>` : ''}
-  </div>` : '<div class="card sub">Todavía no hay ventas.</div>'}
+  <h2>Ganancia</h2>
+  <div class="chips" style="margin-bottom:8px">${[['mes', 'Por mes'], ['lote', 'Por lote']].map(x => `<button class="chip ${balVista === x[0] ? 'on' : ''}" data-a="balVista" data-v="${x[0]}">${x[1]}</button>`).join('')}</div>
+  ${balVista === 'lote' ? graficoLotes(fila) : graficoMeses(meses, sel, tope, fila)}
   <h2>Qué yerba te deja más</h2>
   <div class="card">${lp.length ? lp.map(x => `<div style="padding:6px 0">
       <div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(corto(x.nombre))}</span><span style="white-space:nowrap"><b>${plata(x.gan)}</b></span></div>
@@ -804,6 +831,8 @@ async function accion(a, el){
     case 'nuevoCli': return hojaCliente(null);
     case 'venderA': V = nuevaVenta(); V.cliente = d.c; return ir('vender');
     case 'balMes': balMes = d.m; return pintar();
+    case 'balLote': balLote = d.l; return pintar();
+    case 'balVista': balVista = d.v; return pintar();
     case 'sub': sub = d.s || null; window.scrollTo(0, 0); return pintar();
     case 'mov': return hojaMov(d.t);
     case 'irCaja': return hojaMov('Aporte');
