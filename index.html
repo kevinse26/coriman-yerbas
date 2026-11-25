@@ -166,6 +166,8 @@ let filtroVentas = 'todas', filtroClientes = 'todos', busqueda = '', abierto = n
 let V = nuevaVenta();
 try { ocultar = PREF.ocultarAlAbrir ? true : localStorage.getItem('yerba_ocultar') !== '0'; } catch (e) {}
 
+const PROPIO = 'Consumo propio';
+const costoDe = p => p ? (Number(p.costo) || Number(p.precio) || 0) : 0;
 function nuevaVenta(){ return {cliente:'', producto:'', cantidad:1, especial:'', usarEspecial:false, descuento:0, medio:PREF.medio || 'Transferencia', estado:'Pagado', dia:'hoy', fecha:''}; }
 
 /* ------------------------------------------------------------ sin conexión
@@ -443,7 +445,7 @@ function vInicio(){
   const fecha = DIAS[new Date(y, m - 1, d).getDay()] + ' ' + d + ' de ' + MESES[m - 1];
   const mes = resumenMes(D.hoy.slice(0, 7));
   const lote = loteAbierto(); const pr = proyeccion();
-  const contactar = D.clientes.filter(c => c.estado === 'CONTACTAR HOY');
+  const contactar = D.clientes.filter(c => c.estado === 'CONTACTAR HOY' && c.nombre !== PROPIO);
   const avisos = [];
   if (D.caja.control && String(D.caja.control).indexOf('Cuadra') < 0) avisos.push(['sol', 'ti-scale', avisoCaja()]);
   D.lotes.filter(l => l.control && l.control !== 'Completo').forEach(l => avisos.push(['sol', 'ti-package', avisoLote(l)]));
@@ -503,22 +505,23 @@ function filaContacto(c){
 }
 
 /* ------------------------------------------------------------ VENDER */
-function textoGuardar(p, total){ const t = V.editando ? 'Guardar cambios' : 'Guardar venta'; return p ? (V.medio === 'Sorteo / regalo' ? (V.editando ? t : 'Guardar regalo') : t + ' · ' + pesos(total)) : t; }
+function textoGuardar(p, total){ const t = V.editando ? 'Guardar cambios' : V.propio ? 'Guardar para mí' : 'Guardar venta'; return p ? (V.medio === 'Sorteo / regalo' ? (V.editando ? t : 'Guardar regalo') : t + ' · ' + pesos(total)) : t; }
 function vVender(){
   const c = cliente(V.cliente);
   const max = Math.max(5, ...D.productos.map(p => p.stock));
   const p = prod(V.producto);
   const regalo = V.medio === 'Sorteo / regalo';
   const desc = regalo ? 1 : V.descuento;
-  const unit = p ? (V.usarEspecial && Number(V.especial) > 0 ? Number(V.especial) : p.precio * (1 - desc)) : 0;
+  const unit = p ? (V.propio ? costoDe(p) : V.usarEspecial && Number(V.especial) > 0 ? Number(V.especial) : p.precio * (1 - desc)) : 0;
   const total = unit * V.cantidad;
-  const sugs = V.cliente && !c ? D.clientes.filter(x => norm(x.nombre).includes(norm(V.cliente))).slice(0, 6) : [];
+  const sugs = !V.propio && V.cliente && !c ? D.clientes.filter(x => x.nombre !== PROPIO && norm(x.nombre).includes(norm(V.cliente))).slice(0, 6) : [];
   const nd = nivelDesc(c);
   return `${V.editando ? `<div style="display:flex;justify-content:space-between;align-items:center"><h1>Editar venta</h1><button class="chip" data-a="cancelarEdicion"><i class="ti ti-x"></i> Cancelar</button></div>
   <div class="aviso" style="background:var(--hoja-suave);margin-bottom:10px"><i class="ti ti-pencil ok"></i><span>Corregí lo que esté mal y tocá «Guardar cambios». ${V.editando.origen === 'celular' ? 'Como vino del formulario, la original queda anulada y se guarda la corregida.' : 'Se cambia en la misma fila de la planilla.'}</span></div>` : '<h1>Vender</h1>'}
-  <label class="campo"><span>Cliente</span><input id="inCliente" autocomplete="off" placeholder="Escribí el nombre" value="${esc(V.cliente)}"></label>
-  ${c ? `<div class="chips" style="margin-top:6px"><span class="chip">${esc(nivelTxt(c)) || 'Cliente'}</span>${c.compras ? `<span class="chip">${c.compras} ${c.compras === 1 ? 'compra' : 'compras'}</span>` : ''}${nd && !V.usarEspecial ? `<button class="chip ${V.descuento === nd ? 'on' : ''}" data-a="nivelDesc">Aplicar ${Math.round(nd * 100)}%</button>` : ''}</div>` : ''}
-  <div id="sugs">${sugs.length || (V.cliente && !c) ? `<div class="sugs">${sugs.map(x => `<button data-a="elegirCli" data-c="${esc(x.nombre)}"><span>${esc(x.nombre)}</span><span class="k">${x.compras} compras</span></button>`).join('')}
+  ${V.propio ? `<div class="card" style="display:flex;gap:12px;align-items:center;border:1.5px solid var(--kraft-osc)"><span class="mas-ic" style="background:var(--sol-suave);color:#6B4A0C"><i class="ti ti-user"></i></span><span style="flex:1"><b>Es para vos, a precio de costo</b><div class="k">Sale del stock y no suma ganancia. Así el lote y la caja cierran.</div></span><button class="chip" data-a="propio">Cambiar</button></div>` : `<label class="campo"><span>Cliente</span><input id="inCliente" autocomplete="off" placeholder="Escribí el nombre" value="${esc(V.cliente)}"></label>
+  ${V.editando || V.cliente ? '' : `<div class="chips" style="margin-top:6px"><button class="chip" data-a="propio"><i class="ti ti-user"></i> Es para mí (a costo)</button></div>`}`}
+  ${c && !V.propio ? `<div class="chips" style="margin-top:6px"><span class="chip">${esc(nivelTxt(c)) || 'Cliente'}</span>${c.compras ? `<span class="chip">${c.compras} ${c.compras === 1 ? 'compra' : 'compras'}</span>` : ''}${nd && !V.usarEspecial ? `<button class="chip ${V.descuento === nd ? 'on' : ''}" data-a="nivelDesc">Aplicar ${Math.round(nd * 100)}%</button>` : ''}</div>` : ''}
+  <div id="sugs">${!V.propio && (sugs.length || (V.cliente && !c)) ? `<div class="sugs">${sugs.map(x => `<button data-a="elegirCli" data-c="${esc(x.nombre)}"><span>${esc(x.nombre)}</span><span class="k">${x.compras} compras</span></button>`).join('')}
     ${V.cliente && !c ? `<button data-a="elegirCli" data-c="${esc(V.cliente.trim())}"><span>Cliente nuevo: <b>${esc(V.cliente.trim())}</b></span><i class="ti ti-user-plus ok"></i></button>` : ''}</div>` : ''}</div>
   <h2>Yerba</h2>
   <div class="paquetes">${D.productos.map(x => `
@@ -533,7 +536,7 @@ function vVender(){
     <div class="stepper"><button data-a="menos" aria-label="Menos">−</button><span class="n">${cant(V.cantidad)}</span><button data-a="mas" aria-label="Más">+</button></div>
     <button class="chip ${V.cantidad === .5 ? 'on' : ''}" data-a="medio">Medio paquete</button>
   </div>
-  <h2>Precio</h2>
+  ${V.propio ? `<h2>Precio</h2><div class="card"><div class="k">Costo por paquete</div><div style="font-weight:600;font-size:17px">${p ? pesos(costoDe(p)) : 'Elegí una yerba'}</div><div class="k" style="margin-top:4px">Es lo que le costó al negocio, según el último lote.</div></div>` : `<h2>Precio</h2>
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div><div class="k">Precio de lista</div><div style="font-weight:600;font-size:17px">${p ? pesos(p.precio) : 'Elegí una yerba'}</div></div>
@@ -541,8 +544,10 @@ function vVender(){
     </div>
     ${V.usarEspecial ? `<label class="campo" style="background:var(--fondo);margin-top:8px"><span>Cuánto cobraste por paquete</span><input id="inEspecial" inputmode="numeric" placeholder="10000" value="${esc(V.especial)}"></label>` :
       `<div class="chips" style="margin-top:10px">${[0, .05, .1].concat(nd && [0, .05, .1].indexOf(nd) < 0 ? [nd] : []).map(x => `<button class="chip ${!regalo && desc === x ? 'on' : ''}" data-a="desc" data-d="${x}">${x ? Math.round(x * 100) + '% off' : 'Sin descuento'}</button>`).join('')}<button class="chip ${regalo ? 'on' : ''}" data-a="regalo"><i class="ti ti-gift"></i> Regalo</button></div>`}
-  </div>
-  ${regalo ? '' : `<h2>¿Cómo pagó?</h2>
+  </div>`}
+  ${V.propio ? `<h2>¿Pusiste la plata en la caja?</h2>
+  <div class="chips"><button class="chip ${!V.propioRetiro ? 'on' : ''}" data-a="propioPago" data-r="0">Sí, la puse</button><button class="chip ${V.propioRetiro ? 'on' : ''}" data-a="propioPago" data-r="1">No, la saqué del negocio</button></div>
+  <div class="k" style="margin-top:6px">${V.propioRetiro ? 'Se anota también como retiro tuyo, así la caja sigue cuadrando.' : 'Entra a la caja lo que costó, como si te la hubieras vendido.'}</div>` : regalo ? '' : `<h2>¿Cómo pagó?</h2>
   <div class="chips">${['Transferencia','Efectivo','Mercado Pago'].map(m => `<button class="chip ${V.medio === m ? 'on' : ''}" data-a="medio_pago" data-m="${m}">${m}</button>`).join('')}</div>
   <h2>¿Ya te pagó?</h2>
   <div class="chips"><button class="chip ${V.estado === 'Pagado' ? 'on' : ''}" data-a="estado" data-e="Pagado">Sí, ya pagó</button><button class="chip ${V.estado === 'Pendiente' ? 'on' : ''}" data-a="estado" data-e="Pendiente">No, me debe</button></div>`}
@@ -623,11 +628,11 @@ function hojaVenta(i){
 function iniciales(n){ const w = String(n).trim().split(/\s+/); return ((w[0] || '')[0] || '').toUpperCase() + ((w[1] || '')[0] || '').toUpperCase(); }
 function etiquetaNivel(c){ const m = String(c.nivel || '').match(/VIP|Frecuente/); return m ? `<span class="nivel ${m[0] === 'VIP' ? 'vip' : ''}">${m[0]}</span>` : ''; }
 function vClientes(){
-  let lista = D.clientes.slice().sort((a, b) => a.nombre.localeCompare(b.nombre));
+  let lista = D.clientes.filter(c => c.nombre !== PROPIO).sort((a, b) => a.nombre.localeCompare(b.nombre));
   if (filtroClientes === 'hoy') lista = lista.filter(c => c.estado === 'CONTACTAR HOY');
   if (filtroClientes === 'fieles') lista = lista.filter(c => /VIP|Frecuente/.test(c.nivel));
   if (busqueda) lista = lista.filter(c => norm(c.nombre).includes(norm(busqueda)));
-  const nHoy = D.clientes.filter(c => c.estado === 'CONTACTAR HOY').length;
+  const nHoy = D.clientes.filter(c => c.estado === 'CONTACTAR HOY' && c.nombre !== PROPIO).length;
   return `<div style="display:flex;justify-content:space-between;align-items:center"><h1>Clientes</h1><button class="chip" data-a="nuevoCli"><i class="ti ti-user-plus"></i> Nuevo</button></div>
   <label class="campo"><span>Buscar</span><input id="inBuscar" placeholder="Nombre" value="${esc(busqueda)}" autocomplete="off"></label>
   <div class="chips" style="margin:10px 0">${[['todos','Todos ' + D.clientes.length],['hoy','Escribir hoy ' + nHoy],['fieles','Frecuentes y VIP']].map(f => `<button class="chip ${filtroClientes === f[0] ? 'on' : ''}" data-a="filtroC" data-f="${f[0]}">${f[1]}</button>`).join('')}</div>
@@ -991,6 +996,8 @@ async function accion(a, el){
     case 'regalo': if (V.medio === 'Sorteo / regalo') { V.medio = 'Transferencia'; } else { V.medio = 'Sorteo / regalo'; V.estado = 'Pagado'; V.usarEspecial = false; } return pintar();
     case 'medio_pago': V.medio = d.m; return pintar();
     case 'estado': V.estado = d.e; return pintar();
+    case 'propio': if (V.propio) { V.propio = false; V.cliente = ''; } else { V.propio = true; V.propioRetiro = false; V.cliente = PROPIO; V.usarEspecial = false; V.descuento = 0; V.estado = 'Pagado'; if (V.medio === 'Sorteo / regalo') V.medio = PREF.medio || 'Transferencia'; } return pintar();
+    case 'propioPago': V.propioRetiro = d.r === '1'; return pintar();
     case 'dia': V.dia = d.d; return pintar();
     case 'guardarVenta': return guardarVenta(el);
     case 'cancelarEdicion': V = nuevaVenta(); return ir('ventas');
@@ -1032,6 +1039,20 @@ async function guardarVenta(bt){
   const venta = { fecha, cliente: V.cliente.trim(), producto: V.producto, cantidad: V.cantidad,
     descuento: V.medio === 'Sorteo / regalo' ? 1 : V.descuento, medio: V.medio, estado: V.estado,
     precioEspecial: V.usarEspecial ? Number(V.especial) : '', idLocal: idVenta() };
+  if (V.propio) {
+    const pp = prod(V.producto), costo = costoDe(pp);
+    if (!costo) return toast('Esa yerba no tiene costo cargado todavía');
+    Object.assign(venta, { cliente: PROPIO, descuento: 0, estado: 'Pagado', precioEspecial: costo });
+    if (SIN_RED || !navigator.onLine) return toast('Para anotar algo para vos necesitás internet');
+    bt.disabled = true; bt.textContent = 'Guardando…';
+    try {
+      const r = await llamar('guardarVenta', venta);
+      if (V.propioRetiro) await llamar('movimientoCaja', { tipo: 'Retiro', monto: costo * V.cantidad, fecha, detalle: 'Yerba para consumo propio: ' + cant(V.cantidad) + ' ' + corto(V.producto) });
+      V = nuevaVenta(); await recargar(); window.scrollTo(0, 0);
+      toast('Anotado para vos, a costo', async () => { await llamar('anularVenta', 'compu', r.fila, true); await recargar(); toast('Anulado. Si anotaste un retiro, borralo en Caja.'); });
+    } catch (e) { bt.disabled = false; pintar(); error(e); }
+    return;
+  }
   bt.disabled = true; bt.textContent = 'Guardando…';
   if (!V.editando && PUEDE_OFFLINE && MODO !== 'gas' && (SIN_RED || !navigator.onLine)) return guardarSinRed(venta);
   if (V.editando) {
