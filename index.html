@@ -395,7 +395,7 @@ function pintar(){
   if (!D) return;
   const nav = $('#tabs'); if (nav && nav.offsetHeight) document.documentElement.style.setProperty('--alto-nav', nav.offsetHeight + 'px');
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === vista));
-  const f = {inicio: vInicio, vender: vVender, ventas: vVentas, clientes: vClientes, mas: vMas}[vista];
+  const f = {inicio: vInicio, vender: vVender, ventas: vVentas, clientes: vClientes, mas: vMas, config: vConfig}[vista];
   $('#app').innerHTML = avisoRed() + f();
   enlazar();
 }
@@ -416,7 +416,7 @@ function avisoLote(l){
   const suma = numDe(l.control);
   if (!suma || !l.pagado) return 'Lote ' + l.id + ': ' + l.control + '.';
   const dif = l.pagado - suma;
-  if (ocultar) return 'Lote ' + l.id + ': los costos cargados no suman lo que pagaste. Tocá «Ver plata» para ver cuánto ' + (dif > 0 ? 'falta' : 'sobra') + '.';
+  if (ocultar) return 'Lote ' + l.id + ': los costos cargados no suman lo que pagaste. Tocá «Ver» para ver cuánto ' + (dif > 0 ? 'falta' : 'sobra') + '.';
   return 'Lote ' + l.id + ': pagaste ' + plata(l.pagado) + ', pero los costos cargados suman ' + plata(suma) + '. ' + (dif > 0 ? 'Faltan ' : 'Sobran ') + plata(Math.abs(dif)) + ' por anotar.';
 }
 function loteAbierto(){ return D.lotes.find(l => l.estado === 'Abierto'); }
@@ -432,7 +432,7 @@ function totalReciente(r){
   const p = prod(r.producto); return p ? r.cantidad * p.precio * (1 - (r.descuento || 0)) : 0;
 }
 
-function ojoBtn(){ return `<button class="chip" data-a="ojo" aria-label="${ocultar ? 'Mostrar' : 'Ocultar'} la plata"><i class="ti ${ocultar ? 'ti-eye-off' : 'ti-eye'}"></i> ${ocultar ? 'Ver plata' : 'Ocultar'}</button>`; }
+function ojoBtn(){ return `<button class="chip" data-a="ojo" aria-label="${ocultar ? 'Mostrar' : 'Ocultar'} la plata"><i class="ti ${ocultar ? 'ti-eye-off' : 'ti-eye'}"></i> ${ocultar ? 'Ver' : 'Ocultar'}</button>`; }
 const cabecera = (t, extra) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h1>${t}</h1><div style="display:flex;gap:6px">${ojoBtn()}${extra || ''}</div></div>`;
 
 /* ------------------------------------------------------------ INICIO */
@@ -451,7 +451,7 @@ function vInicio(){
   let html = `
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
     <div><div class="marca grande"><i></i>Coriman Yerbas</div><div class="sub">${fecha.charAt(0).toUpperCase() + fecha.slice(1)}</div><h1>${saludo}${nombreUsuario() ? ', ' + esc(nombreUsuario()) : ''}</h1></div>
-    <span style="margin-top:6px">${ojoBtn()}</span>
+    <span style="margin-top:6px;display:flex;gap:6px">${ojoBtn()}<button class="chip" data-a="config" aria-label="Configuración" title="Configuración"><i class="ti ti-settings" style="font-size:17px"></i></button></span>
   </div>
   <div class="grid2">
     <div class="card"><div class="k">En caja</div><div class="num">${plata(D.caja.enCaja)}</div></div>
@@ -470,7 +470,7 @@ function vInicio(){
     const faltaLote = Math.max(0, k.proximoLote - (k.enCaja + k.teDeben + pr.ventas));
     html += `<div class="card" style="margin-top:8px;border:1.5px solid ${deMas || faltaLote ? 'var(--aviso-borde)' : 'var(--hoja-suave)'}">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600">Lo que sacaste para vos</span><span class="num" style="font-size:20px">${plata(k.retiros)}</span></div>
-      ${ocultar ? `<div class="k" style="margin-top:4px">${deMas ? 'Sacaste más de lo que ganó el negocio. Tocá «Ver plata» para ver cuánto poner.' : 'Todo salió de la ganancia: el negocio sigue entero.'}</div>` : `
+      ${ocultar ? `<div class="k" style="margin-top:4px">${deMas ? 'Sacaste más de lo que ganó el negocio. Tocá «Ver» para ver cuánto poner.' : 'Todo salió de la ganancia: el negocio sigue entero.'}</div>` : `
       ${deMas ? `<div style="font-size:14px;margin-top:6px">Sacaste <b>${plata(deMas)}</b> más de lo que ganó el negocio. Para volver a estar en camino, poné <b>${plata(deMas)}</b>.</div>`
         : `<div class="k" style="margin-top:4px">Todo salió de la ganancia: el negocio sigue entero.</div>`}
       <div class="k" style="margin-top:6px">${faltaLote ? 'Aunque vendas todo lo que queda, para el próximo lote te faltarían ' + plata(faltaLote) + '.' : 'Si vendés lo que queda, te alcanza para el próximo lote (' + plata(k.proximoLote) + ').'}</div>`}
@@ -685,7 +685,6 @@ function vMas(){
     ${item('caja', 'Caja y retiros', 'Podés retirar ' + plata(D.caja.podesRetirar) + ' sin frenar el negocio', 'ti-cash')}
     ${item('lotes', 'Lotes', lote ? 'Lote ' + lote.id + ' abierto · cargar uno nuevo' : 'Cargar un lote nuevo', 'ti-package')}
     ${item('gastos', 'Gastos', 'Nafta, bolsas, publicidad y otros', 'ti-receipt-2')}
-    ${item('config', 'Configuración', 'Tema, privacidad, ventas y tu cuenta', 'ti-settings')}
     ${item('precios', 'Precios y stock', baldo ? corto(baldo.nombre) + ' a ' + pesos(baldo.precio) : 'Cambiar precios', 'ti-tag')}
   </div>
   <button class="btn sec chico" data-a="recargar" style="margin-top:16px"><i class="ti ti-refresh"></i> Actualizar datos</button>
@@ -783,7 +782,7 @@ function vConfig(){
   const nombre = nombreUsuario();
   const n = PENDIENTES.length;
   const fila = (t, d, extra) => `<div class="row"><span>${t}${d ? `<div class="k">${d}</div>` : ''}</span>${extra || ''}</div>`;
-  return `${volver()}<h1>Configuración</h1>
+  return `<button class="chip" data-a="irInicio" style="margin-bottom:6px"><i class="ti ti-chevron-left"></i> Inicio</button><h1>Configuración</h1>
   <h2>Apariencia</h2>
   <div class="card"><div class="opcion">Tema</div>
     <div class="chips">${op('tema', 'auto', '<i class="ti ti-device-mobile"></i> Como el celular')}${op('tema', 'claro', '<i class="ti ti-sun"></i> Claro')}${op('tema', 'oscuro', '<i class="ti ti-moon"></i> Oscuro')}</div></div>
@@ -1004,6 +1003,8 @@ async function accion(a, el){
     case 'pref': { let v = d.v; if (v === 'true' || v === 'false') v = v === 'true'; else if (/^\d+$/.test(v)) v = Number(v);
       PREF[d.k] = v; guardarPref(); if (d.k === 'tema') aplicarTema(); if (d.k === 'pinVolver' && v) marcarSalida(); return pintar(); }
     case 'guia': return abrir(GUIA_URL);
+    case 'config': return ir('config');
+    case 'irInicio': return ir('inicio');
     case 'balMes': balMes = d.m; return pintar();
     case 'balLote': balLote = d.l; return pintar();
     case 'balVista': balVista = d.v; return pintar();
