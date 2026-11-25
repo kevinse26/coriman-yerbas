@@ -96,6 +96,9 @@ nav.tabs button.vender.on{background:var(--hoja-osc)}
 .marca{display:flex;align-items:center;gap:7px;font-family:var(--display);font-weight:600;font-size:14px;color:var(--hoja);margin-bottom:4px}
 .marca i{width:18px;height:18px;border-radius:50% 50% 45% 45%;background:var(--kraft);position:relative;display:inline-block}
 .marca i::after{content:"";position:absolute;width:2.5px;height:12px;background:#9AA19A;border-radius:2px;top:-7px;left:11px;transform:rotate(18deg)}
+.marca.grande{font-size:22px;gap:10px;margin-bottom:6px;letter-spacing:-.01em}
+.marca.grande i{width:26px;height:26px}
+.marca.grande i::after{width:3px;height:17px;top:-10px;left:16px}
 .ini{flex:none;width:38px;height:38px;border-radius:50%;background:var(--hoja-suave);color:var(--hoja);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px}
 .nivel{font-size:11.5px;font-weight:600;border-radius:999px;padding:2px 8px;background:var(--sol-suave);color:#6B4A0C;white-space:nowrap}
 .nivel.vip{background:var(--hoja);color:var(--papel)}
@@ -103,6 +106,20 @@ nav.tabs button.vender.on{background:var(--hoja-osc)}
 .pk.poco .pie span:last-child{color:#7E2A1A;font-weight:700}
 .guardar{position:fixed;left:0;right:0;bottom:var(--alto-nav,68px);z-index:4;padding:10px 16px 8px;background:linear-gradient(rgba(238,241,234,0),var(--fondo) 35%)}
 .guardar .btn{max-width:488px;margin:0 auto;box-shadow:0 6px 18px rgba(30,36,25,.18)}
+.reparto{display:flex;height:14px;gap:2px;border-radius:7px;overflow:hidden;margin:10px 0 4px}
+.reparto>div{height:100%}
+.punto{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;vertical-align:-1px}
+.barras{display:flex;align-items:flex-end;gap:10px;height:150px;padding:18px 2px 0;border-bottom:1px solid #CBD2C3}
+.barras button{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;min-width:0;position:relative}
+.barras .b{width:100%;max-width:44px;border-radius:4px 4px 0 0;background:var(--hoja);opacity:.45;transition:opacity .15s}
+.barras .b.neg{background:var(--brasa)}
+.barras button.on .b{opacity:1}
+.barras .v{position:absolute;top:-2px;font-size:11.5px;font-weight:600;white-space:nowrap;color:var(--tinta)}
+.mesesx{display:flex;gap:10px;padding:6px 2px 0}
+.mesesx span{flex:1;text-align:center;font-size:12px;color:var(--gris)}
+.mesesx span.on{color:var(--tinta);font-weight:600}
+.hbar{height:10px;background:var(--hoja-suave);border-radius:0 4px 4px 0;margin-top:5px}
+.hbar>div{height:100%;background:var(--hoja);border-radius:0 4px 4px 0}
 .mas-ic{width:38px;height:38px;border-radius:12px;background:var(--hoja-suave);color:var(--hoja);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}
 </style>
 </head>
@@ -122,6 +139,7 @@ nav.tabs button.vender.on{background:var(--hoja-osc)}
 <script>
 const ENVIVO = typeof google !== 'undefined' && google.script && google.script.run;
 let D = null, vista = 'inicio', sub = null, ocultar = true;
+let balMes = null;
 let filtroVentas = 'todas', filtroClientes = 'todos', busqueda = '', abierto = null;
 let V = nuevaVenta();
 try { ocultar = localStorage.getItem('yerba_ocultar') !== '0'; } catch (e) {}
@@ -138,6 +156,17 @@ try { TOKEN = sessionStorage.getItem('yerba_tok') || ''; } catch (e) {}
 function tokenValido(){
   if (!TOKEN) return false;
   try { const p = JSON.parse(atob(TOKEN.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); return p.exp * 1000 > Date.now() + 60000; } catch (e) { return false; }
+}
+function nombreUsuario(){
+  try {
+    if (TOKEN) {
+      const b = TOKEN.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const p = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b), c => c.charCodeAt(0))));
+      const n = p.given_name || String(p.name || '').split(' ')[0];
+      if (n) { try { localStorage.setItem('yerba_nombre', n); } catch (e) {} return n; }
+    }
+  } catch (e) {}
+  try { return localStorage.getItem('yerba_nombre') || ''; } catch (e) { return ''; }
 }
 function manejarError(m){
   if (m.indexOf('PIN_') >= 0) { olvidarPin(); pedirPin(m.indexOf('BLOQUEADO') >= 0 ? 'Demasiados intentos. Esperá 15 minutos y probá de nuevo.' : 'El PIN no es correcto.'); }
@@ -303,7 +332,7 @@ function vInicio(){
   const pend = D.recientes.filter(r => !r.anulada && r.estado === 'Pendiente').length;
   let html = `
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
-    <div><div class="marca"><i></i>Coriman Yerbas</div><div class="sub">${fecha.charAt(0).toUpperCase() + fecha.slice(1)}</div><h1>${saludo}</h1></div>
+    <div><div class="marca grande"><i></i>Coriman Yerbas</div><div class="sub">${fecha.charAt(0).toUpperCase() + fecha.slice(1)}</div><h1>${saludo}${nombreUsuario() ? ', ' + esc(nombreUsuario()) : ''}</h1></div>
     <span style="margin-top:6px">${ojoBtn()}</span>
   </div>
   <div class="grid2">
@@ -504,6 +533,7 @@ function hojaCliente(c){
 
 /* ------------------------------------------------------------ MÁS */
 function vMas(){
+  if (sub === 'balance') return vBalance();
   if (sub === 'caja') return vCaja();
   if (sub === 'lotes') return vLotes();
   if (sub === 'gastos') return vGastos();
@@ -511,6 +541,7 @@ function vMas(){
   const lote = loteAbierto(); const baldo = D.productos[0];
   const item = (s, t, d, ic) => `<button class="card" style="text-align:left;display:flex;gap:12px;align-items:center" data-a="sub" data-s="${s}"><span class="mas-ic"><i class="ti ${ic}"></i></span><span style="flex:1"><span style="font-weight:600;font-size:16px">${t}</span><div class="k">${d}</div></span><i class="ti ti-chevron-right" style="font-size:20px;color:var(--gris)"></i></button>`;
   return `${cabecera('Más')}<div class="stack">
+    ${item('balance', 'Balance y ganancias', 'Dónde está la plata y cuánto ganás', 'ti-chart-bar')}
     ${item('caja', 'Caja y retiros', 'Podés retirar ' + plata(D.caja.podesRetirar) + ' sin frenar el negocio', 'ti-cash')}
     ${item('lotes', 'Lotes', lote ? 'Lote ' + lote.id + ' abierto · cargar uno nuevo' : 'Cargar un lote nuevo', 'ti-package')}
     ${item('gastos', 'Gastos', 'Nafta, bolsas, publicidad y otros', 'ti-receipt-2')}
@@ -520,6 +551,64 @@ function vMas(){
   <div style="margin-top:28px;text-align:center"><div class="marca" style="justify-content:center"><i></i>Coriman Yerbas</div>
   <div class="k">Lo que cargás acá queda en la planilla y lo ves también en la compu.</div>
   <button class="k" data-a="salir" style="margin-top:12px;text-decoration:underline">Cerrar sesión en este celular</button></div>`;
+}
+function porMes(){
+  const meses = {};
+  const m0 = k => meses[k] || (meses[k] = { total: 0, gan: 0, kg: 0, n: 0, gastos: 0 });
+  D.ventas.forEach(v => { const k = mesDe(v.fecha); if (!k) return; const o = m0(k); o.total += v.total; o.gan += v.ganancia; o.kg += v.cantidad * ((prod(v.producto) || {}).peso || 1); o.n++; });
+  D.gastos.forEach(g => { const k = mesDe(g.fecha); if (!k) return; m0(k).gastos += g.monto; });
+  return Object.keys(meses).sort().map(k => Object.assign({ mes: k, real: meses[k].gan - meses[k].gastos }, meses[k]));
+}
+const nombreMes = (k, largo) => { const n = MESES[Number(k.slice(5)) - 1]; const t = largo ? n : n.slice(0, 3); return t.charAt(0).toUpperCase() + t.slice(1); };
+function vBalance(){
+  const k = D.caja;
+  const partes = [['En caja', k.enCaja, '#4E7A2E'], ['En yerba sin vender', k.enStock, '#C08A2E'], ['Te deben', k.teDeben, '#3F78B5']];
+  const suma = partes.reduce((a, x) => a + Math.max(0, x[1]), 0) || 1;
+  const meses = porMes().slice(-6);
+  if (!balMes || !meses.some(x => x.mes === balMes)) balMes = meses.length ? meses[meses.length - 1].mes : null;
+  const sel = meses.find(x => x.mes === balMes);
+  const tope = Math.max(1, ...meses.map(x => Math.abs(x.real)));
+  const prods = {};
+  D.ventas.forEach(v => { const o = prods[v.producto] || (prods[v.producto] = { gan: 0, total: 0, n: 0 }); o.gan += v.ganancia; o.total += v.total; o.n += v.cantidad; });
+  const lp = Object.keys(prods).map(n => Object.assign({ nombre: n }, prods[n])).filter(x => x.n > 0).sort((a, b) => b.gan - a.gan);
+  const topeP = Math.max(1, ...lp.map(x => x.gan));
+  const tot = D.ventas.reduce((a, v) => a + v.total, 0), gan = D.ventas.reduce((a, v) => a + v.ganancia, 0);
+  const gastos = D.gastos.reduce((a, g) => a + g.monto, 0);
+  const kg = D.ventas.reduce((a, v) => a + v.cantidad * ((prod(v.producto) || {}).peso || 1), 0);
+  const fila = (t, v, signo, fuerte) => `<div class="row"><span${fuerte ? ' style="font-weight:600"' : ''}>${t}</span><span style="font-weight:600;white-space:nowrap">${signo ? `<span class="k" style="margin-right:4px">${signo}</span>` : ''}${v}</span></div>`;
+  return `${volver()}${cabecera('Balance')}
+  <div class="card"><div class="k">Lo que vale tu negocio hoy</div><div class="num" style="font-size:30px">${plata(k.valeNegocio)}</div>
+    <div class="reparto" role="img" aria-label="Cómo se reparte la plata">${partes.filter(x => x[1] > 0).map(x => `<div style="width:${(x[1] / suma * 100).toFixed(1)}%;background:${x[2]}"></div>`).join('')}</div>
+    ${partes.map(x => `<div class="row" style="padding:7px 0"><span><span class="punto" style="background:${x[2]}"></span>${x[0]}</span><span style="white-space:nowrap"><span class="k" style="margin-right:8px">${Math.round(Math.max(0, x[1]) / suma * 100)}%</span><b>${plata(x[1])}</b></span></div>`).join('')}
+  </div>
+  <h2>Cómo se formó</h2><div class="list">
+    ${fila('Pusiste de tu bolsillo', plata(k.bolsillo), '+')}${fila('Ganó el negocio', plata(k.gananciaReal), '+')}${fila('Sacaste para vos', plata(k.retiros), '−')}${fila('Vale tu negocio hoy', plata(k.valeNegocio), '=', true)}
+  </div>
+  ${k.reinvertida < 0 ? `<div class="aviso sol" style="margin-top:8px"><i class="ti ti-alert-triangle"></i><span>${ocultar ? 'Sacaste más de lo que ganó el negocio.' : 'Sacaste ' + plata(-k.reinvertida) + ' más de lo que ganó el negocio. Para volver a estar en camino, poné ' + plata(-k.reinvertida) + '.'}</span></div>` : ''}
+  <h2>Ganancia por mes</h2>
+  ${meses.length ? `<div class="card">
+    <div class="k">Ganancia real (después de gastos). Tocá un mes para ver el detalle.</div>
+    <div class="barras">${meses.map(x => `<button data-a="balMes" data-m="${x.mes}" class="${x.mes === balMes ? 'on' : ''}" aria-label="${nombreMes(x.mes, true)}: ganancia ${ocultar ? 'oculta' : pesos(x.real)}">
+      ${x.mes === balMes && !ocultar ? `<span class="v" style="top:${Math.max(0, 100 - Math.abs(x.real) / tope * 100) - 14}%">${pesos(x.real)}</span>` : ''}
+      <div class="b ${x.real < 0 ? 'neg' : ''}" style="height:${Math.max(2, Math.abs(x.real) / tope * 88)}%"></div></button>`).join('')}</div>
+    <div class="mesesx">${meses.map(x => `<span class="${x.mes === balMes ? 'on' : ''}">${nombreMes(x.mes)}</span>`).join('')}</div>
+    ${sel ? `<div style="margin-top:12px;font-weight:600">${nombreMes(sel.mes, true)} ${sel.mes.slice(0, 4)}</div>
+    ${fila('Vendiste', plata(sel.total))}${fila('Ganancia de la yerba', plata(sel.gan))}${sel.gastos ? fila('Gastos', plata(sel.gastos), '−') : ''}${fila('Ganancia real', plata(sel.real), '', true)}
+    <div class="k" style="margin-top:4px">${sel.n} ${sel.n === 1 ? 'venta' : 'ventas'}, ${cant(sel.kg)} kg</div>` : ''}
+  </div>` : '<div class="card sub">Todavía no hay ventas.</div>'}
+  <h2>Qué yerba te deja más</h2>
+  <div class="card">${lp.length ? lp.map(x => `<div style="padding:6px 0">
+      <div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(corto(x.nombre))}</span><span style="white-space:nowrap"><b>${plata(x.gan)}</b></span></div>
+      <div class="hbar" aria-hidden="true"><div style="width:${Math.max(2, x.gan / topeP * 100)}%"></div></div>
+      <div class="k" style="margin-top:3px">${cant(x.n)} vendidos${x.total ? ', ganás el ' + Math.round(x.gan / x.total * 100) + '% de lo que cobrás' : ''}</div></div>`).join('') : '<span class="sub">Todavía no hay ventas.</span>'}</div>
+  <h2>Desde que empezaste</h2>
+  <div class="grid2">
+    <div class="card"><div class="k">Vendiste</div><div class="num" style="font-size:20px">${plata(tot)}</div></div>
+    <div class="card"><div class="k">Ganancia real</div><div class="num" style="font-size:20px">${plata(gan - gastos)}</div></div>
+    <div class="card"><div class="k">Kilos vendidos</div><div class="num" style="font-size:20px">${cant(kg)} kg</div></div>
+    <div class="card"><div class="k">Ganás por paquete</div><div class="num" style="font-size:20px">${D.ventas.length ? plata(gan / Math.max(1, D.ventas.reduce((a, v) => a + v.cantidad, 0))) : '-'}</div><div class="k">en promedio</div></div>
+  </div>
+  <button class="btn sec chico" data-a="sub" data-s="caja" style="margin-top:14px"><i class="ti ti-cash"></i> Anotar que puse o saqué plata</button>`;
 }
 const volver = () => `<button class="chip" data-a="sub" data-s="" style="margin-bottom:6px"><i class="ti ti-chevron-left"></i> Más</button>`;
 function vCaja(){
@@ -565,20 +654,25 @@ function vLotes(){
 function hojaLote(){
   let items = [{ producto: D.productos[0] ? D.productos[0].nombre : '', paquetes: '', costoKg: '' }];
   const fila = (it, i) => `<div class="card" style="display:grid;grid-template-columns:1.4fr .8fr 1fr auto;gap:6px;align-items:end;padding:8px 10px">
-    <label><span class="k">Yerba</span><select data-i="${i}" data-k="producto" style="width:100%;border:0;background:transparent;font-size:15px">${D.productos.map(p => `<option ${p.nombre === it.producto ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></label>
+    <label><span class="k">Yerba</span><select data-i="${i}" data-k="producto" style="width:100%;border:0;background:transparent;font-size:15px">${D.productos.map(p => `<option ${p.nombre === it.producto ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}<option value="__nueva" ${it.producto === '__nueva' ? 'selected' : ''}>+ Yerba nueva</option></select></label>
     <label><span class="k">Paquetes</span><input data-i="${i}" data-k="paquetes" inputmode="decimal" value="${esc(it.paquetes)}" style="width:100%;border:0;background:transparent;font-size:15px"></label>
     <label><span class="k">$ por kg</span><input data-i="${i}" data-k="costoKg" inputmode="numeric" placeholder="opcional" value="${esc(it.costoKg)}" style="width:100%;border:0;background:transparent;font-size:15px"></label>
-    <button data-q="${i}" aria-label="Quitar"><i class="ti ti-x" style="color:var(--gris)"></i></button></div>`;
+    <button data-q="${i}" aria-label="Quitar"><i class="ti ti-x" style="color:var(--gris)"></i></button>
+    ${it.producto === '__nueva' ? `<div style="grid-column:1/-1;display:grid;grid-template-columns:1.6fr 1fr;gap:6px;border-top:1px solid var(--linea);padding-top:8px;margin-top:2px">
+      <label><span class="k">Nombre de la yerba nueva</span><input data-i="${i}" data-k="nNombre" placeholder="Ej: Playadito" value="${esc(it.nNombre || '')}" style="width:100%;border:0;background:transparent;font-size:15px"></label>
+      <label><span class="k">Paquete de</span><select data-i="${i}" data-k="nPres" style="width:100%;border:0;background:transparent;font-size:15px"><option ${it.nPres !== '500g' ? 'selected' : ''}>1kg</option><option ${it.nPres === '500g' ? 'selected' : ''}>500g</option></select></label>
+      <label style="grid-column:1/-1"><span class="k">A cuánto la vas a vender (por paquete, opcional)</span><input data-i="${i}" data-k="nPrecio" inputmode="numeric" placeholder="Si no sabés, dejalo vacío" value="${esc(it.nPrecio || '')}" style="width:100%;border:0;background:transparent;font-size:15px"></label>
+      <div class="k" style="grid-column:1/-1">Se agrega sola al catálogo y a la planilla. Después le podés cambiar el precio en Precios y stock.</div></div>` : ''}</div>`;
   const pintarItems = () => {
     $('#lItems').innerHTML = items.map(fila).join('');
-    $('#lItems').querySelectorAll('[data-k]').forEach(el => el.oninput = el.onchange = () => { items[el.dataset.i][el.dataset.k] = el.value; chequeo(); });
+    $('#lItems').querySelectorAll('[data-k]').forEach(el => { el.oninput = () => { items[el.dataset.i][el.dataset.k] = el.value; chequeo(); }; el.onchange = () => { const cambio = el.dataset.k === 'producto' || el.dataset.k === 'nPres'; items[el.dataset.i][el.dataset.k] = el.value; if (cambio) pintarItems(); chequeo(); }; });
     $('#lItems').querySelectorAll('[data-q]').forEach(b => b.onclick = () => { items.splice(Number(b.dataset.q), 1); if (!items.length) items.push({ producto: D.productos[0].nombre, paquetes: '', costoKg: '' }); pintarItems(); chequeo(); });
   };
   const chequeo = () => {
     const total = Number($('#lTotal').value.replace(/\D/g, '')) || 0;
     const conCosto = items.filter(it => Number(it.paquetes) > 0);
     if (!total || !conCosto.length || conCosto.some(it => !(Number(it.costoKg) > 0))) { $('#lCheck').innerHTML = ''; return; }
-    const suma = conCosto.reduce((s, it) => s + Number(it.paquetes) * ((prod(it.producto) || {}).peso || 1) * Number(it.costoKg), 0);
+    const suma = conCosto.reduce((s, it) => s + Number(it.paquetes) * (it.producto === '__nueva' ? (it.nPres === '500g' ? .5 : 1) : ((prod(it.producto) || {}).peso || 1)) * Number(it.costoKg), 0);
     const dif = Math.round(total - suma);
     $('#lCheck').innerHTML = dif === 0 ? `<div class="aviso" style="background:var(--hoja-suave)"><i class="ti ti-check ok"></i><span>Los costos suman lo que pagaste.</span></div>`
       : `<div class="aviso sol"><i class="ti ti-alert-triangle"></i><span>Los costos suman ${pesos(suma)}: ${dif > 0 ? 'faltan' : 'sobran'} ${pesos(Math.abs(dif))}.</span></div>`;
@@ -597,11 +691,24 @@ function hojaLote(){
     $('#lMas').onclick = () => { items.push({ producto: D.productos[Math.min(items.length, D.productos.length - 1)].nombre, paquetes: '', costoKg: '' }); pintarItems(); };
     $('#lOk').onclick = async () => {
       const total = Number($('#lTotal').value.replace(/\D/g, ''));
-      const its = items.filter(it => Number(it.paquetes) > 0).map(it => ({ producto: it.producto, paquetes: Number(String(it.paquetes).replace(',', '.')), costoKg: Number(String(it.costoKg).replace(/\D/g, '')) || '' }));
+      const sinNombre = items.some(it => it.producto === '__nueva' && Number(it.paquetes) > 0 && !String(it.nNombre || '').trim());
+      if (sinNombre) return toast('Escribí el nombre de la yerba nueva');
+      const its = items.filter(it => Number(it.paquetes) > 0).map(it => {
+        const base = { producto: it.producto, paquetes: Number(String(it.paquetes).replace(',', '.')), costoKg: Number(String(it.costoKg).replace(/\D/g, '')) || '' };
+        if (it.producto !== '__nueva') return base;
+        const pres = it.nPres === '500g' ? '500g' : '1kg';
+        let nom = String(it.nNombre).trim().replace(/\s+/g, ' ');
+        nom = nom.charAt(0).toUpperCase() + nom.slice(1);
+        if (!/\b(1\s?kg|500\s?g)$/i.test(nom)) nom += ' ' + pres;
+        const ya = D.productos.find(p => norm(p.nombre) === norm(nom));
+        if (ya) { base.producto = ya.nombre; return base; }
+        base.producto = nom; base.nueva = { presentacion: pres, precio: Number(String(it.nPrecio || '').replace(/\D/g, '')) || '' };
+        return base;
+      });
       if (!total) return toast('Poné lo que pagaste por el lote');
       if (!its.length) return toast('Agregá cuántos paquetes trajo');
       $('#lOk').disabled = true;
-      try { const r = await llamar('nuevoLote', { fecha: $('#lFecha').value, proveedor: $('#lProv').value, total, items: its }); cerrarHoja(); toast('Lote ' + r.id + ' guardado' + (r.control && r.control !== 'Completo' ? '. Revisá: ' + r.control : '')); await recargar(); }
+      try { const r = await llamar('nuevoLote', { fecha: $('#lFecha').value, proveedor: $('#lProv').value, total, items: its }); cerrarHoja(); toast('Lote ' + r.id + ' guardado' + (r.nuevos && r.nuevos.length ? '. Yerba nueva: ' + r.nuevos.join(', ') : '') + (r.control && r.control !== 'Completo' ? '. Revisá los costos' : '')); await recargar(); }
       catch (e) { $('#lOk').disabled = false; error(e); }
     };
   });
@@ -696,11 +803,12 @@ async function accion(a, el){
     case 'abrirCli': abierto = d.c; return pintar();
     case 'nuevoCli': return hojaCliente(null);
     case 'venderA': V = nuevaVenta(); V.cliente = d.c; return ir('vender');
+    case 'balMes': balMes = d.m; return pintar();
     case 'sub': sub = d.s || null; window.scrollTo(0, 0); return pintar();
     case 'mov': return hojaMov(d.t);
     case 'irCaja': return hojaMov('Aporte');
     case 'salir': if (!confirm('¿Cerrar sesión en este celular? Vas a tener que entrar con Google y poner el PIN de nuevo.')) return;
-      olvidarPin(); TOKEN = ''; try { sessionStorage.removeItem('yerba_tok'); } catch (e) {}
+      olvidarPin(); TOKEN = ''; try { sessionStorage.removeItem('yerba_tok'); localStorage.removeItem('yerba_nombre'); } catch (e) {}
       try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch (e) {}
       return arrancar();
     case 'nuevoLote': return hojaLote();
