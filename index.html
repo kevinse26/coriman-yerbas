@@ -188,11 +188,16 @@ nav.tabs button.vender.on{background:var(--hoja-osc)}
 
 /* ---------- menú lateral con Más desplegado y bloques con gráficos ---------- */
 nav.tabs .subnav{display:none}
+nav.tabs .menos{display:none}
 @media (min-width: 700px){
   .solo-grande{display:block}
 }
 @media (min-width: 1024px){
-  nav.tabs .subnav{display:flex;font-size:14px;padding:8px 12px 8px 24px;color:var(--gris)}
+  nav.tabs .subnav{display:none;font-size:14px;padding:8px 12px 8px 24px;color:var(--gris)}
+  nav.tabs.abierto .subnav{display:flex}
+  nav.tabs.abierto .in > button[data-v="mas"]:not([data-s]){display:none}
+  nav.tabs.abierto .menos{display:flex;font-size:14px;padding:8px 12px 8px 24px;margin-top:4px;color:var(--gris)}
+  nav.tabs .menos i{font-size:18px}
   nav.tabs .subnav i{font-size:18px}
   nav.tabs .subnav.on{color:var(--hoja)}
   nav.tabs .in{overflow-y:auto;max-height:100%}
@@ -214,6 +219,7 @@ nav.tabs .subnav{display:none}
     <button data-v="mas" data-s="gastos" class="subnav"><i class="ti ti-receipt-2"></i>Gastos</button>
     <button data-v="mas" data-s="precios" class="subnav"><i class="ti ti-tag"></i>Precios y stock</button>
     <button data-v="config" class="subnav"><i class="ti ti-settings"></i>Configuración</button>
+    <button class="menos" data-nav="cerrar"><i class="ti ti-chevron-up"></i>Menos</button>
   </div>
 </nav>
 <div id="capa"></div>
@@ -467,13 +473,26 @@ function hoja(html, alMontar){
 function cerrarHoja(){ $('#capa').innerHTML = ''; }
 
 /* ------------------------------------------------------------ navegación */
-document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => ir(b.dataset.v, b.dataset.s));
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
+  if (b.dataset.nav === 'cerrar') return navAbrir(false);
+  if (b.dataset.v === 'mas' && !b.dataset.s && matchMedia('(min-width: 1024px)').matches) return navAbrir(true);
+  ir(b.dataset.v, b.dataset.s);
+});
+function navAbrir(si){ $('#tabs').classList.toggle('abierto', si); try { localStorage.setItem('yerba_nav', si ? '1' : '0'); } catch (e) {} if (D) pintar(); }
+try { if (localStorage.getItem('yerba_nav') === '1') document.getElementById('tabs').classList.add('abierto'); } catch (e) {}
 function ir(v, s){ vista = v; sub = s || null; abierto = null; window.scrollTo(0, 0); pintar(); }
 function pintar(){
   if (!D) return;
   const nav = $('#tabs'); if (nav && nav.offsetHeight) document.documentElement.style.setProperty('--alto-nav', nav.offsetHeight + 'px');
   const ancho = matchMedia('(min-width: 1024px)').matches;
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === vista && (b.dataset.s ? sub === b.dataset.s : (vista !== 'mas' || !ancho || !sub))));
+  const navAbierto = $('#tabs').classList.contains('abierto');
+  document.querySelectorAll('#tabs button').forEach(b => {
+    let on;
+    if (b.dataset.nav) on = false;
+    else if (b.dataset.v === 'mas' && !b.dataset.s) on = ancho ? (!navAbierto && (vista === 'mas' || vista === 'config')) : vista === 'mas';
+    else on = b.dataset.v === vista && (!b.dataset.s || sub === b.dataset.s);
+    b.classList.toggle('on', on);
+  });
   const f = {inicio: vInicio, vender: vVender, ventas: vVentas, clientes: vClientes, mas: vMas, config: vConfig}[vista];
   $('#app').innerHTML = avisoRed() + f();
   enlazar();
