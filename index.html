@@ -3,9 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Yerba</title>
+<title>Coriman Yerbas</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#3D5A2A">
+<meta name="apple-mobile-web-app-title" content="Coriman Yerbas">
+<meta name="application-name" content="Coriman Yerbas">
 <script>window.YERBA_CFG = { api: 'https://script.google.com/macros/s/AKfycbwwBvAu5pfubsF_a-Jh5bjgEWhjcdh1XpagbGzc57AlhsDQafhKwwGNA2iB_daYgln8/exec', clientId: '274039419489-vm1uq9vih0aqp6t17df9656at8lrqldf.apps.googleusercontent.com' };</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
@@ -139,7 +141,7 @@ function llamar(fn, ...args){
 function pedirGoogle(msg){
   $('#tabs').classList.add('oculto'); cerrarHoja();
   $('#app').innerHTML = `<div class="cargando" style="gap:16px">
-    <div class="mate"></div><h1 style="margin:0">Yerba</h1>
+    <div class="mate"></div><h1 style="margin:0;text-align:center">Coriman Yerbas</h1>
     <div class="sub" style="text-align:center;max-width:270px">Entrá con tu cuenta de Google. Solo pueden entrar las cuentas autorizadas.</div>
     <div id="gBoton" style="min-height:44px"></div>
     ${msg ? `<div class="bad" style="font-size:14px;text-align:center;max-width:270px">${esc(msg)}</div>` : ''}</div>`;
@@ -166,7 +168,7 @@ function pedirPin(msg){
   $('#tabs').classList.add('oculto'); cerrarHoja();
   $('#app').innerHTML = `<div class="cargando" style="gap:16px">
     <div class="mate"></div>
-    <h1 style="margin:0">Yerba</h1>
+    <h1 style="margin:0;text-align:center">Coriman Yerbas</h1>
     <div class="sub" style="text-align:center;max-width:260px">Poné el PIN del negocio. Se pide una sola vez en este celular.</div>
     <label class="campo" style="width:220px;text-align:center"><span>PIN</span><input id="inPin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" style="text-align:center;font-size:24px;letter-spacing:.3em"></label>
     ${msg ? `<div class="bad" style="font-size:14px">${esc(msg)}</div>` : ''}
