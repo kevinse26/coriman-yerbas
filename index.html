@@ -921,6 +921,31 @@ function vBalance(){
   </div>
   <button class="btn sec chico" data-a="sub" data-s="caja" style="margin-top:14px"><i class="ti ti-cash"></i> Anotar que puse o saqué plata</button>`;
 }
+function hojaCambiarPin(){
+  const campo = (id, t) => `<label class="campo"><span>${t}</span><input id="${id}" type="password" inputmode="numeric" autocomplete="off" maxlength="8" style="font-size:22px;letter-spacing:.3em"></label>`;
+  hoja(`<h2>Cambiar mi PIN</h2><div class="stack">
+    ${campo('pViejo', 'PIN actual')}${campo('pNuevo', 'PIN nuevo (4 a 8 números)')}${campo('pRepite', 'Repetí el PIN nuevo')}
+    <div id="pError" class="bad" style="font-size:14px;min-height:20px"></div>
+    <button class="btn" id="pOk">Cambiar PIN</button><button class="btn sec" onclick="cerrarHoja()">Cancelar</button></div>`, () => {
+    const err = t => { $('#pError').textContent = t; };
+    ['pViejo', 'pNuevo', 'pRepite'].forEach(id => $('#' + id).oninput = () => { $('#' + id).value = $('#' + id).value.replace(/\D/g, ''); err(''); });
+    setTimeout(() => $('#pViejo') && $('#pViejo').focus(), 100);
+    $('#pOk').onclick = async () => {
+      const viejo = $('#pViejo').value, nuevo = $('#pNuevo').value, repite = $('#pRepite').value;
+      if (!viejo) return err('Poné tu PIN actual.');
+      if (!/^\d{4,8}$/.test(nuevo)) return err('El PIN nuevo tiene que tener de 4 a 8 números.');
+      if (nuevo !== repite) return err('Los dos PIN nuevos no coinciden.');
+      if (nuevo === viejo) return err('El PIN nuevo tiene que ser distinto del actual.');
+      if (/^(\d)\1+$/.test(nuevo) || '0123456789'.includes(nuevo) || '9876543210'.includes(nuevo)) return err('Ese PIN es muy fácil de adivinar. Elegí otro.');
+      $('#pOk').disabled = true; $('#pOk').textContent = 'Cambiando…';
+      try {
+        await llamar('cambiarPin', viejo, nuevo);
+        PIN = nuevo; try { localStorage.setItem('yerba_pin', nuevo); } catch (e) {}
+        cerrarHoja(); toast('Listo, tu PIN nuevo ya funciona');
+      } catch (e) { $('#pOk').disabled = false; $('#pOk').textContent = 'Cambiar PIN'; err(typeof e === 'string' ? e : 'No se pudo cambiar. Revisá internet y probá de nuevo.'); }
+    };
+  });
+}
 function vConfig(){
   const op = (k, v, t) => `<button class="chip ${String(PREF[k]) === String(v) ? 'on' : ''}" data-a="pref" data-k="${k}" data-v="${v}">${t}</button>`;
   let email = ''; try { email = localStorage.getItem('yerba_email') || ''; } catch (e) {}
@@ -937,6 +962,8 @@ function vConfig(){
       <div class="chips">${op('ocultarAlAbrir', true, 'Siempre oculta')}${op('ocultarAlAbrir', false, 'Como la dejé')}</div></div>
     <div><div class="opcion">Pedir el PIN al volver a la app</div><div class="k">Si le prestás el celular a alguien, sin el PIN no ve nada.</div>
       <div class="chips">${op('pinVolver', 0, 'Nunca')}${op('pinVolver', 5, 'Después de 5 min')}${op('pinVolver', 30, 'Después de 30 min')}</div></div>
+    ${MODO === 'api' ? `<div><div class="opcion">Tu PIN</div><div class="k">Es solo tuyo: si lo cambiás, el de tu socio no cambia.</div>
+      <button class="chip" data-a="cambiarPin" style="margin-top:6px"><i class="ti ti-lock"></i> Cambiar mi PIN</button></div>` : ''}
   </div>
   <h2>Ventas</h2>
   <div class="card"><div class="opcion">Forma de pago que viene marcada</div>
@@ -1125,6 +1152,7 @@ async function accion(a, el){
     case 'wa': { const c = cliente(d.c); return c && c.wa ? abrir(wa(c.wa, c.mensaje)) : hojaCliente(c); }
     case 'cli': case 'editCli': return hojaCliente(cliente(d.c));
     case 'verVentas': return ir('ventas');
+    case 'cambiarPin': return hojaCambiarPin();
     case 'irBalance': return ir('mas', 'balance');
     case 'verContactar': filtroClientes = 'hoy'; return ir('clientes');
     case 'elegirCli': V.cliente = d.c; return pintar();
