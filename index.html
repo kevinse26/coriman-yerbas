@@ -163,6 +163,28 @@ nav.tabs button.vender.on{background:var(--hoja-osc)}
   .toast{left:calc(50% + 108px);bottom:28px}
   .velo{padding-left:236px}
 }
+
+/* ---------- tablero de Inicio y monitores grandes ---------- */
+.solo-grande{display:none}
+@media (min-width: 900px){
+  .solo-grande{display:block}
+  .tablero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"a b" "a c";column-gap:22px;align-items:start}
+  .tablero > .ca{grid-area:a} .tablero > .cb{grid-area:b} .tablero > .cc{grid-area:c}
+  .tablero > .cb > h2:first-child{margin-top:0}
+}
+@media (min-width: 1400px){
+  .app{max-width:1560px}
+  .tablero{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-areas:"a b c";column-gap:26px}
+  .tablero > .cc > h2:first-child{margin-top:0}
+  .dos-col{gap:30px}
+  .app > .stack{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media (min-width: 1900px){
+  html{zoom:1.15}
+}
+@media (min-width: 2300px){
+  html{zoom:1.3}
+}
 </style>
 </head>
 <body>
@@ -491,7 +513,7 @@ function vInicio(){
     <div><div class="marca grande"><i></i>Coriman Yerbas</div><div class="sub">${fecha.charAt(0).toUpperCase() + fecha.slice(1)}</div><h1>${saludo}${nombreUsuario() ? ', ' + esc(nombreUsuario()) : ''}</h1></div>
     <span style="margin-top:6px;display:flex;gap:6px">${ojoBtn()}<button class="chip" data-a="config" aria-label="Configuración" title="Configuración"><i class="ti ti-settings" style="font-size:17px"></i></button></span>
   </div>
-  <div class="dos-col"><div class="col">
+  <div class="tablero"><div class="col ca">
   <div class="grid2">
     <div class="card"><div class="k">En caja</div><div class="num">${plata(D.caja.enCaja)}</div></div>
     <div class="card"><div class="k">Te deben</div><div class="num">${plata(D.caja.teDeben)}</div>${pend ? `<div class="k warn">${pend} ${pend === 1 ? 'venta' : 'ventas'} sin cobrar</div>` : ''}</div>
@@ -517,7 +539,7 @@ function vInicio(){
     </div>`;
   }
   avisos.forEach(a => html += `<div class="aviso ${a[0]}" style="margin-top:8px"><i class="ti ${a[1]}" style="font-size:18px"></i><span>${esc(a[2])}</span></div>`);
-  html += '</div><div class="col">';
+  html += '</div><div class="col cb">';
   if (lote) {
     const pct = lote.paraVender ? Math.min(1, lote.vendido / lote.paraVender) : 0;
     html += `<h2>Lote ${esc(lote.id)}</h2>
@@ -531,10 +553,13 @@ function vInicio(){
   html += `<h2>Stock</h2><div class="list">` + D.productos.map(p => `
     <div class="row"><span>${esc(corto(p.nombre))}</span>
     <span class="${p.stock <= 0 ? 'bad' : p.stock <= 5 ? 'warn' : ''}">${p.stock <= 0 ? 'sin stock' : cant(p.stock) + ' paquetes' + (p.stock <= 5 ? ', reponer' : '')}</span></div>`).join('') + `</div>`;
+  html += '</div><div class="col cc">';
   if (contactar.length) {
     html += `<h2>Escribirles hoy</h2><div class="list">` + contactar.slice(0, 5).map(c => filaContacto(c)).join('') +
       (contactar.length > 5 ? `<div class="row"><button class="ok" data-a="verContactar" style="font-weight:600">Ver los ${contactar.length}</button><span></span></div>` : '') + `</div>`;
   }
+  const ult = D.recientes.filter(r => !r.anulada).slice(0, 6);
+  if (ult.length) html += `<h2 class="solo-grande">Últimas ventas</h2><div class="list solo-grande">${ult.map(r => `<button class="row" style="width:100%;text-align:left" data-a="venta" data-i="${D.recientes.indexOf(r)}"><span><span style="font-weight:600">${esc(r.cliente)}</span><div class="k">${cant(r.cantidad)} ${esc(corto(r.producto))}, ${fechaTxt(r.fecha)}</div></span><span style="white-space:nowrap;font-weight:600">${plata(totalReciente(r))}</span></button>`).join('')}<div class="row"><button class="ok" data-a="verVentas" style="font-weight:600">Ver todas las ventas</button><span></span></div></div>`;
   html += '</div></div>';
   return html;
 }
@@ -1029,6 +1054,7 @@ async function accion(a, el){
     case 'ojo': ocultar = !ocultar; try { localStorage.setItem('yerba_ocultar', ocultar ? '1' : '0'); } catch (e) {} return pintar();
     case 'wa': { const c = cliente(d.c); return c && c.wa ? abrir(wa(c.wa, c.mensaje)) : hojaCliente(c); }
     case 'cli': case 'editCli': return hojaCliente(cliente(d.c));
+    case 'verVentas': return ir('ventas');
     case 'verContactar': filtroClientes = 'hoy'; return ir('clientes');
     case 'elegirCli': V.cliente = d.c; return pintar();
     case 'nivelDesc': V.descuento = V.descuento === nivelDesc(cliente(V.cliente)) ? 0 : nivelDesc(cliente(V.cliente)); return pintar();
