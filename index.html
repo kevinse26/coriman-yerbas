@@ -1105,7 +1105,9 @@ function vProximo(){
       <div style="text-align:center"><div class="k">Sugerencia</div><div class="num" style="font-size:24px" id="plQ${i}"></div></div>
     </div></div>`).join('')}</div>
   <div class="k" style="margin:6px 2px 0">El costo vacío usa el último que pagaste. En «Quiero sí o sí», vacío = que lo sugiera y 0 = no comprar esa yerba.</div>
-  <h2>Resumen</h2><div class="card" id="plRes"></div>`;
+  <h2>Resumen</h2><div class="card" id="plRes"></div>
+  <button class="btn" data-a="planComprar" style="margin-top:14px"><i class="ti ti-check"></i> Lo compré así: pasarlo a Lotes</button>
+  <div class="k" style="margin:6px 2px 0;text-align:center">Se abre el lote nuevo ya completo para que lo revises antes de guardar.</div>`;
 }
 function planPintarRes(){
   if (!$('#plRes')) return;
@@ -1130,8 +1132,8 @@ function vLotes(){
     ${l.control && l.control !== 'Completo' ? `<div class="aviso sol" style="margin-top:8px"><i class="ti ti-alert-triangle"></i><span>${esc(avisoLote(l))}</span></div>` : ''}
   </div>`).join('')}</div>`;
 }
-function hojaLote(){
-  let items = [{ producto: D.productos[0] ? D.productos[0].nombre : '', paquetes: '', costoKg: '' }];
+function hojaLote(pre){
+  let items = pre && pre.items && pre.items.length ? pre.items.map(it => Object.assign({}, it)) : [{ producto: D.productos[0] ? D.productos[0].nombre : '', paquetes: '', costoKg: '' }];
   const fila = (it, i) => `<div class="card" style="display:grid;grid-template-columns:1.4fr .8fr 1fr auto;gap:6px;align-items:end;padding:8px 10px">
     <label><span class="k">Yerba</span><select data-i="${i}" data-k="producto" style="width:100%;border:0;background:transparent;font-size:15px">${D.productos.map(p => `<option ${p.nombre === it.producto ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}<option value="__nueva" ${it.producto === '__nueva' ? 'selected' : ''}>+ Yerba nueva</option></select></label>
     <label><span class="k">Paquetes</span><input data-i="${i}" data-k="paquetes" inputmode="decimal" value="${esc(it.paquetes)}" style="width:100%;border:0;background:transparent;font-size:15px"></label>
@@ -1157,6 +1159,7 @@ function hojaLote(){
       : `<div class="aviso sol"><i class="ti ti-alert-triangle"></i><span>Los costos suman ${pesos(suma)}: ${dif > 0 ? 'faltan' : 'sobran'} ${pesos(Math.abs(dif))}.</span></div>`;
   };
   hoja(`<h2>Lote nuevo</h2><div class="stack">
+    ${pre ? '<div class="aviso" style="background:var(--hoja-suave)"><i class="ti ti-shopping-cart"></i><span>Viene del armado del próximo lote. Revisá que sea lo que te llegó y lo que pagaste: podés cambiar cantidades, agregar otra yerba o corregir el total antes de guardar.</span></div>' : ''}
     <div class="grid2"><label class="campo"><span>Fecha</span><input id="lFecha" type="date" value="${D.hoy}"></label>
     <label class="campo"><span>Proveedor</span><input id="lProv" placeholder="Distribuidora"></label></div>
     <label class="campo"><span>Lo que pagaste por todo</span><input id="lTotal" inputmode="numeric" placeholder="145000"></label>
@@ -1166,6 +1169,7 @@ function hojaLote(){
     <div id="lCheck"></div>
     <button class="btn" id="lOk">Guardar lote</button><button class="btn sec" onclick="cerrarHoja()">Cancelar</button></div>`, () => {
     pintarItems();
+    if (pre) { if (pre.total) $('#lTotal').value = pre.total; if (pre.proveedor) $('#lProv').value = pre.proveedor; chequeo(); }
     $('#lTotal').oninput = chequeo;
     $('#lMas').onclick = () => { items.push({ producto: D.productos[Math.min(items.length, D.productos.length - 1)].nombre, paquetes: '', costoKg: '' }); pintarItems(); };
     $('#lOk').onclick = async () => {
@@ -1187,7 +1191,7 @@ function hojaLote(){
       if (!total) return toast('Poné lo que pagaste por el lote');
       if (!its.length) return toast('Agregá cuántos paquetes trajo');
       $('#lOk').disabled = true;
-      try { const r = await llamar('nuevoLote', { fecha: $('#lFecha').value, proveedor: $('#lProv').value, total, items: its }); cerrarHoja(); toast('Lote ' + r.id + ' guardado' + (r.nuevos && r.nuevos.length ? '. Yerba nueva: ' + r.nuevos.join(', ') : '') + (r.control && r.control !== 'Completo' ? '. Revisá los costos' : '')); await recargar(); }
+      try { const r = await llamar('nuevoLote', { fecha: $('#lFecha').value, proveedor: $('#lProv').value, total, items: its }); cerrarHoja(); if (pre && pre.alGuardar) pre.alGuardar(); toast('Lote ' + r.id + ' guardado' + (r.nuevos && r.nuevos.length ? '. Yerba nueva: ' + r.nuevos.join(', ') : '') + (r.control && r.control !== 'Completo' ? '. Revisá los costos' : '')); await recargar(); }
       catch (e) { $('#lOk').disabled = false; error(e); }
     };
   });
@@ -1310,6 +1314,14 @@ async function accion(a, el){
     case 'balLote': balLote = d.l; return pintar();
     case 'balVista': balVista = d.v; return pintar();
     case 'sub': sub = d.s || null; window.scrollTo(0, 0); return pintar();
+    case 'planComprar': {
+      const r = planCalc();
+      const its = r.filas.filter(f => f.q > 0).map(f => ({ producto: f.p.nombre, paquetes: String(f.q), costoKg: f.c ? String(Math.round(f.c / (f.p.peso || 1))) : '' }));
+      if (!its.length) return toast('El armado todavía no tiene ninguna yerba');
+      const ult = D.lotes.length ? D.lotes[D.lotes.length - 1] : null;
+      return hojaLote({ items: its, total: String(Math.round(r.total)), proveedor: ult && ult.proveedor ? ult.proveedor : '',
+        alGuardar: () => { PL = {}; try { localStorage.removeItem('yerba_plan'); } catch (e) {} sub = 'lotes'; } });
+    }
     case 'planLimpiar': PL = {}; try { localStorage.removeItem('yerba_plan'); } catch (e) {} return pintar();
     case 'mov': return hojaMov(d.t);
     case 'irCaja': return hojaMov('Aporte');
