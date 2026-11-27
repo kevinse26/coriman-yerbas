@@ -563,6 +563,7 @@ function ojoBtn(){ return `<button class="chip" data-a="ojo" aria-label="${ocult
 const cabecera = (t, extra) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h1>${t}</h1><div style="display:flex;gap:6px">${ojoBtn()}${extra || ''}</div></div>`;
 
 /* ------------------------------------------------------------ INICIO */
+function reservadas(prodNombre){ return D.recientes.filter(r => !r.anulada && r.estado === 'Reservado' && r.producto === prodNombre).reduce((a, r) => a + Number(r.cantidad || 0), 0); }
 function vInicio(){
   const h = new Date().getHours();
   const saludo = h < 13 ? 'Buen día' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
@@ -572,6 +573,8 @@ function vInicio(){
   const lote = loteAbierto(); const pr = proyeccion();
   const contactar = D.clientes.filter(c => c.estado === 'CONTACTAR HOY' && c.nombre !== PROPIO);
   const avisos = [];
+  const res = D.recientes.filter(r => !r.anulada && r.estado === 'Reservado');
+  if (res.length) avisos.push(['sol', 'ti-bookmark', (res.length === 1 ? 'Tenés 1 reserva sin entregar: ' : 'Tenés ' + res.length + ' reservas sin entregar: ') + res.map(r => r.cliente + ' (' + cant(r.cantidad) + ' ' + corto(r.producto) + ')').join(', ') + '. Se entregan desde Ventas → Reservadas.']);
   if (D.caja.control && String(D.caja.control).indexOf('Cuadra') < 0) avisos.push(['sol', 'ti-scale', avisoCaja()]);
   D.lotes.filter(l => l.control && l.control !== 'Completo').forEach(l => avisos.push(['sol', 'ti-package', avisoLote(l)]));
   const pend = D.recientes.filter(r => !r.anulada && r.estado === 'Pendiente').length;
@@ -620,7 +623,7 @@ function vInicio(){
   }
   html += `<h2>Stock</h2><div class="list">` + D.productos.map(p => `
     <div class="row"><span>${esc(corto(p.nombre))}</span>
-    <span class="${p.stock <= 0 ? 'bad' : p.stock <= 5 ? 'warn' : ''}">${p.stock <= 0 ? 'sin stock' : cant(p.stock) + ' paquetes' + (p.stock <= 5 ? ', reponer' : '')}</span></div>`).join('') + `</div>`;
+    <span class="${p.stock <= 0 ? 'bad' : p.stock <= 5 ? 'warn' : ''}">${p.stock <= 0 ? 'sin stock' : cant(p.stock) + ' paquetes' + (reservadas(p.nombre) ? ' (' + cant(reservadas(p.nombre)) + ' reservada' + (reservadas(p.nombre) === 1 ? '' : 's') + ')' : '') + (p.stock <= 5 ? ', reponer' : '')}</span></div>`).join('') + `</div>`;
   html += bloqueGanancia();
   html += '</div><div class="col cc">';
   if (contactar.length) {
@@ -638,7 +641,7 @@ function filaContacto(c){
 }
 
 /* ------------------------------------------------------------ VENDER */
-function textoGuardar(p, total){ const t = V.editando ? 'Guardar cambios' : V.propio ? 'Guardar para mí' : 'Guardar venta'; return p ? (V.medio === 'Sorteo / regalo' ? (V.editando ? t : 'Guardar regalo') : t + ' · ' + pesos(total)) : t; }
+function textoGuardar(p, total){ const t = V.editando ? 'Guardar cambios' : V.propio ? 'Guardar para mí' : V.estado === 'Reservado' ? 'Guardar reserva' : 'Guardar venta'; return p ? (V.medio === 'Sorteo / regalo' ? (V.editando ? t : 'Guardar regalo') : t + ' · ' + pesos(total)) : t; }
 function vVender(){
   const c = cliente(V.cliente);
   const max = Math.max(5, ...D.productos.map(p => p.stock));
@@ -685,7 +688,8 @@ function vVender(){
   <div class="k" style="margin-top:6px">${V.propioRetiro ? 'Se anota también como retiro tuyo, así la caja sigue cuadrando.' : 'Entra a la caja lo que costó, como si te la hubieras vendido.'}</div>` : regalo ? '' : `<h2>¿Cómo pagó?</h2>
   <div class="chips">${['Transferencia','Efectivo','Mercado Pago'].map(m => `<button class="chip ${V.medio === m ? 'on' : ''}" data-a="medio_pago" data-m="${m}">${m}</button>`).join('')}</div>
   <h2>¿Ya te pagó?</h2>
-  <div class="chips"><button class="chip ${V.estado === 'Pagado' ? 'on' : ''}" data-a="estado" data-e="Pagado">Sí, ya pagó</button><button class="chip ${V.estado === 'Pendiente' ? 'on' : ''}" data-a="estado" data-e="Pendiente">No, me debe</button></div>`}
+  <div class="chips"><button class="chip ${V.estado === 'Pagado' ? 'on' : ''}" data-a="estado" data-e="Pagado">Sí, ya pagó</button><button class="chip ${V.estado === 'Pendiente' ? 'on' : ''}" data-a="estado" data-e="Pendiente">No, me debe</button><button class="chip ${V.estado === 'Reservado' ? 'on' : ''}" data-a="estado" data-e="Reservado"><i class="ti ti-bookmark"></i> La reservó</button></div>
+  ${V.estado === 'Reservado' ? '<div class="k" style="margin-top:6px">Queda apartada para ese cliente: no cuenta como venta hasta que se la entregues. La entregás desde Ventas → Reservadas.</div>' : ''}`}
   <h2>Fecha</h2>
   <div class="chips"><button class="chip ${V.dia === 'hoy' ? 'on' : ''}" data-a="dia" data-d="hoy">Hoy</button><button class="chip ${V.dia === 'ayer' ? 'on' : ''}" data-a="dia" data-d="ayer">Ayer</button><button class="chip ${V.dia === 'otra' ? 'on' : ''}" data-a="dia" data-d="otra">Otra fecha</button></div>
   ${V.dia === 'otra' ? `<label class="campo" style="margin-top:8px"><span>Día de la venta</span><input id="inFecha" type="date" value="${esc(V.fecha || D.hoy)}" max="${D.hoy}"></label>` : ''}
@@ -699,18 +703,19 @@ function vVentas(){
   const mes = D.hoy.slice(0, 7), r = resumenMes(mes);
   let lista = D.recientes.slice();
   if (filtroVentas === 'cobrar') lista = lista.filter(x => !x.anulada && x.estado === 'Pendiente');
+  else if (filtroVentas === 'reservadas') lista = lista.filter(x => !x.anulada && x.estado === 'Reservado');
   else if (filtroVentas === 'anuladas') lista = lista.filter(x => x.anulada);
   else lista = lista.filter(x => !x.anulada || filtroVentas === 'todas');
   return `${cabecera('Ventas')}
   <div class="grid2"><div class="card"><div class="k">${MESES[Number(mes.slice(5)) - 1].charAt(0).toUpperCase() + MESES[Number(mes.slice(5)) - 1].slice(1)}</div><div class="num">${plata(r.total)}</div></div>
   <div class="card"><div class="k">Ganancia</div><div class="num">${plata(r.gan)}</div></div></div>
-  <div class="chips" style="margin:12px 0 8px">${[['todas','Todas'],['cobrar','A cobrar'],['anuladas','Anuladas']].map(f => `<button class="chip ${filtroVentas === f[0] ? 'on' : ''}" data-a="filtroV" data-f="${f[0]}">${f[1]}</button>`).join('')}</div>
+  <div class="chips" style="margin:12px 0 8px">${[['todas','Todas'],['cobrar','A cobrar'],['reservadas','Reservadas'],['anuladas','Anuladas']].map(f => `<button class="chip ${filtroVentas === f[0] ? 'on' : ''}" data-a="filtroV" data-f="${f[0]}">${f[1]}</button>`).join('')}</div>
   <div class="list">${lista.length ? lista.map((x, i) => `
     <button class="row" style="width:100%;text-align:left" data-a="venta" data-i="${D.recientes.indexOf(x)}">
       <span class="${x.anulada ? 'tachada' : ''}"><span style="font-weight:600">${esc(x.cliente)}</span>
         <div class="k">${cant(x.cantidad)} ${esc(corto(x.producto))}, ${fechaTxt(x.fecha)}${x.precioEspecial ? ', precio especial' : ''}</div></span>
-      <span style="text-align:right;white-space:nowrap" class="${x.anulada ? 'tachada' : ''}">${plata(totalReciente(x))}${x.estado === 'Pendiente' && !x.anulada ? '<div class="k warn">debe</div>' : ''}${x.anulada ? '<div class="k">anulada</div>' : ''}${x.pendiente ? '<div class="k warn"><i class="ti ti-cloud-off"></i> sin subir</div>' : ''}</span>
-    </button>`).join('') : `<div class="row"><span class="sub">${filtroVentas === 'cobrar' ? 'Nadie te debe plata.' : filtroVentas === 'anuladas' ? 'No hay ventas anuladas.' : 'Todavía no hay ventas.'}</span></div>`}</div>
+      <span style="text-align:right;white-space:nowrap" class="${x.anulada ? 'tachada' : ''}">${plata(totalReciente(x))}${x.estado === 'Pendiente' && !x.anulada ? '<div class="k warn">debe</div>' : ''}${x.estado === 'Reservado' && !x.anulada ? '<div class="k warn">reservada</div>' : ''}${x.anulada ? '<div class="k">anulada</div>' : ''}${x.pendiente ? '<div class="k warn"><i class="ti ti-cloud-off"></i> sin subir</div>' : ''}</span>
+    </button>`).join('') : `<div class="row"><span class="sub">${filtroVentas === 'cobrar' ? 'Nadie te debe plata.' : filtroVentas === 'anuladas' ? 'No hay ventas anuladas.' : filtroVentas === 'reservadas' ? 'No hay yerba reservada.' : 'Todavía no hay ventas.'}</span></div>`}</div>
   <div class="k" style="margin-top:8px">Tocá una venta para anularla o marcarla como cobrada.</div>`;
 }
 function editarVenta(x){
@@ -737,6 +742,7 @@ function hojaVenta(i){
     <div class="sub" style="margin-bottom:12px">${cant(x.cantidad)} ${esc(corto(x.producto))}, ${fechaTxt(x.fecha)}, ${esc(x.medio)}, ${plata(totalReciente(x))}</div>
     <div class="stack">
       ${x.estado === 'Pendiente' && !x.anulada && x.origen === 'compu' ? `<button class="btn" data-h="pagada">Marcar como cobrada</button>` : ''}
+      ${x.estado === 'Reservado' && !x.anulada ? `<div class="k">Reservada: todavía no cuenta como venta.</div><button class="btn" data-h="entregar"><i class="ti ti-check"></i> Se la entregué y me pagó</button><button class="btn sec" data-h="entregarDebe">Se la entregué, me debe</button>` : ''}
       ${x.anulada ? '' : `<button class="btn sec" data-h="editar"><i class="ti ti-pencil"></i> Editar venta</button>`}
       ${c && c.wa ? `<button class="btn sec" data-h="wa"><i class="ti ti-brand-whatsapp"></i> Escribirle</button>` : ''}
       <button class="btn sec" data-h="anular" style="color:${x.anulada ? 'var(--hoja)' : 'var(--brasa)'}">${x.anulada ? 'Volver a contarla' : 'Anular venta (prueba o error)'}</button>
@@ -750,6 +756,10 @@ function hojaVenta(i){
       b.disabled = true;
       try {
         if (a === 'pagada') { await llamar('marcarPagada', x.origen, x.fila); cerrarHoja(); toast('Venta marcada como cobrada'); }
+        if (a === 'entregar' || a === 'entregarDebe') {
+          await llamar('editarVenta', x.origen, x.fila, { fecha: D.hoy, cliente: x.cliente, producto: x.producto, cantidad: x.cantidad, descuento: x.descuento || '', medio: x.medio || 'Transferencia', estado: a === 'entregar' ? 'Pagado' : 'Pendiente', precioEspecial: x.precioEspecial || '' });
+          cerrarHoja(); toast(a === 'entregar' ? 'Listo: ahora cuenta como venta de hoy' : 'Entregada: queda como que te debe');
+        }
         if (a === 'anular') {
           const nuevo = !x.anulada; await llamar('anularVenta', x.origen, x.fila, nuevo); cerrarHoja();
           toast(nuevo ? 'Venta anulada' : 'La venta vuelve a contar', nuevo ? async () => { await llamar('anularVenta', x.origen, x.fila, false); await recargar(); toast('La venta vuelve a contar'); } : null);
@@ -1263,7 +1273,7 @@ async function guardarVenta(bt){
     const r = await llamar('guardarVenta', venta);
     const quien = venta.cliente, era = !cliente(quien);
     V = nuevaVenta(); await recargar(); window.scrollTo(0, 0);
-    toast('Venta a ' + quien + ' guardada' + (era ? '. Cliente nuevo agregado' : ''), async () => { await llamar('anularVenta', 'compu', r.fila, true); await recargar(); toast('Venta anulada'); });
+    toast((venta.estado === 'Reservado' ? 'Reserva para ' : 'Venta a ') + quien + ' guardada' + (era ? '. Cliente nuevo agregado' : ''), async () => { await llamar('anularVenta', 'compu', r.fila, true); await recargar(); toast('Venta anulada'); });
   } catch (e) {
     if (e === ERR_RED && PUEDE_OFFLINE && MODO !== 'gas') return guardarSinRed(venta);
     bt.disabled = false; pintar(); error(e);
