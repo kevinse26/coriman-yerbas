@@ -1065,6 +1065,7 @@ let PL = (() => { try { return JSON.parse(localStorage.getItem('yerba_plan')) ||
 function planCalc(){
   const k = D.caja, def = (Number(k.enCaja) || 0) + (Number(k.teDeben) || 0);
   const pres = Number(PL.pres) > 0 ? Number(PL.pres) : def;
+  const meta = Number(PL.paq) > 0 ? Number(PL.paq) : Infinity;
   const vend = {}; D.ventas.forEach(v => { vend[v.producto] = (vend[v.producto] || 0) + Number(v.cantidad || 0); });
   const filas = D.productos.map(p => {
     const cc = (PL.costo || {})[p.nombre], ff = (PL.fijo || {})[p.nombre];
@@ -1075,24 +1076,27 @@ function planCalc(){
   // Reparte de a un paquete: siempre a la yerba que más se vende en proporción a lo que ya lleva, mientras alcance la plata.
   for (let i = 0; i < 500; i++) {
     const resto = pres - filas.reduce((a, f) => a + f.q * f.c, 0);
+    if (filas.reduce((a, f) => a + f.q, 0) >= meta) break;
     let mejor = null;
     filas.forEach(f => { if (f.fijo === null && f.c > 0 && f.c <= resto) { const sc = (f.q + 1) / f.w; if (!mejor || sc < mejor.sc) mejor = { f, sc }; } });
     if (!mejor) break;
     mejor.f.q++;
   }
   const suma = fn => filas.reduce((a, f) => a + fn(f), 0);
-  return { def, pres, filas, paq: suma(f => f.q), total: suma(f => f.q * f.c), kg: suma(f => f.q * (f.p.peso || 1)), gan: suma(f => f.q * ((f.p.precio || 0) - f.c)) };
+  return { def, pres, meta, filas, paq: suma(f => f.q), total: suma(f => f.q * f.c), kg: suma(f => f.q * (f.p.peso || 1)), gan: suma(f => f.q * ((f.p.precio || 0) - f.c)) };
 }
 function vProximo(){
   const r = planCalc();
   const inp = 'width:100%;border:0;border-bottom:1.5px solid var(--linea);background:transparent;font-size:16px;padding:4px 0;outline:none';
   return `${volver()}${cabecera('Próximo lote', '<button class="chip" data-a="planLimpiar"><i class="ti ti-eraser"></i> Limpiar</button>')}
   <div class="k" style="margin-bottom:10px">Poné cuánto querés invertir y, si querés, cuántos paquetes querés sí o sí de alguna yerba. Te sugiero el resto para llegar lo más cerca posible a esa plata sin pasarte, según lo que más vendés.</div>
+  <label class="campo"><span>Cuánto querés invertir</span><input data-pl="pres" inputmode="numeric" placeholder="${plata(r.def)}" value="${esc(PL.pres || '')}"></label>
+  <div class="k" style="margin:6px 2px 10px">Si lo dejás vacío uso lo que tenés si cobrás todo lo que te deben (${plata(r.def)}).</div>
   <div class="grid2">
-    <label class="campo"><span>Cuánto querés invertir</span><input data-pl="pres" inputmode="numeric" placeholder="${plata(r.def)}" value="${esc(PL.pres || '')}"></label>
+    <label class="campo"><span>Paquetes que vas a comprar</span><input data-pl="paq" inputmode="numeric" placeholder="los que alcancen" value="${esc(PL.paq || '')}"></label>
     <label class="campo"><span>Mínimo entre los dos (kg)</span><input data-pl="minimo" inputmode="numeric" placeholder="50" value="${esc(PL.minimo || '')}"></label>
   </div>
-  <div class="k" style="margin:6px 2px 4px">Si lo dejás vacío uso lo que tenés si cobrás todo lo que te deben (${plata(r.def)}).</div>
+  <div class="k" style="margin:6px 2px 4px">Si tu socio ya sabe cuánto compra, poné acá la diferencia (ej: si él compra 30, vos 20).</div>
   <h2>Yerbas</h2><div class="stack">${r.filas.map((f, i) => `<div class="card" style="padding:10px 12px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b>${esc(corto(f.p.nombre))}</b><span class="k" id="plSub${i}"></span></div>
     <div style="display:grid;grid-template-columns:1fr 1fr .8fr;gap:10px;margin-top:6px;align-items:end">
@@ -1114,7 +1118,7 @@ function planPintarRes(){
   const min = Number(PL.minimo) > 0 ? Number(PL.minimo) : 50, socio = Math.max(0, min - r.kg);
   $('#plRes').innerHTML = `${filaBal('Paquetes', cant(r.paq))}${filaBal('Total del pedido', plata(r.total), '', true)}${filaBal('Te quedan sin usar', plata(r.pres - r.total))}
     ${filaBal('Kilos tuyos', cant(r.kg) + ' kg')}${filaBal('Tu socio tiene que comprar', socio ? cant(socio) + ' kg' : 'nada, ya llegás a ' + min + ' kg')}
-    <div class="k" style="margin-top:8px">${r.total > r.pres ? 'Ojo: lo que querés sí o sí ya cuesta más que la plata que querés invertir.' : 'Si vendés todo a los precios de hoy, ganás unos ' + plata(r.gan) + '. La sugerencia reparte según lo que más vendiste.'}</div>`;
+    <div class="k" style="margin-top:8px">${r.total > r.pres ? 'Ojo: lo que querés sí o sí ya cuesta más que la plata que querés invertir.' : (r.meta !== Infinity && r.paq < r.meta ? 'Ojo: con esa plata te alcanza para ' + cant(r.paq) + ' de los ' + cant(r.meta) + ' paquetes. ' : '') + 'Si vendés todo a los precios de hoy, ganás unos ' + plata(r.gan) + '. La sugerencia reparte según lo que más vendiste.'}</div>`;
 }
 function vLotes(){
   return `${volver()}${cabecera('Lotes', '<button class="chip on" data-a="nuevoLote"><i class="ti ti-plus"></i> Nuevo</button>')}
