@@ -532,7 +532,7 @@ function resumenMes(mes){
   const vs = D.ventas.filter(v => mesDe(v.fecha) === mes);
   const total = vs.reduce((s, v) => s + v.total, 0), gan = vs.reduce((s, v) => s + v.ganancia, 0);
   const gastos = D.gastos.filter(g => mesDe(g.fecha) === mes).reduce((s, g) => s + g.monto, 0);
-  return { total, gan, gastos, real: gan - gastos, n: vs.length };
+  return { total, gan, gastos, real: gan - gastos, n: vs.length, paq: vs.reduce((s, v) => s + Number(v.cantidad || 0), 0) };
 }
 function avisoCaja(){
   const d = Math.abs(numDe(D.caja.control));
@@ -589,7 +589,7 @@ function vInicio(){
     <div class="card"><div class="k">Te deben</div><div class="num">${plata(D.caja.teDeben)}</div>${pend ? `<div class="k warn">${pend} ${pend === 1 ? 'venta' : 'ventas'} sin cobrar</div>` : ''}</div>
   </div>
   <div class="card" style="margin-top:8px">
-    <div class="k">${MESES[m - 1].charAt(0).toUpperCase() + MESES[m - 1].slice(1)}: ${mes.n} ${mes.n === 1 ? 'venta' : 'ventas'}</div>
+    <div class="k">${MESES[m - 1].charAt(0).toUpperCase() + MESES[m - 1].slice(1)}: ${cant(mes.paq)} ${mes.paq === 1 ? 'paquete vendido' : 'paquetes vendidos'}</div>
     <div class="grid2" style="margin-top:4px">
       <div><div class="num" style="font-size:20px">${plata(mes.total)}</div><div class="k">vendido</div></div>
       <div><div class="num" style="font-size:20px">${plata(mes.real)}</div><div class="k">ganancia real${mes.gastos ? ' (con gastos)' : ''}</div></div>
@@ -853,8 +853,8 @@ function vMas(){
 }
 function porMes(){
   const meses = {};
-  const m0 = k => meses[k] || (meses[k] = { total: 0, gan: 0, kg: 0, n: 0, gastos: 0 });
-  D.ventas.forEach(v => { const k = mesDe(v.fecha); if (!k) return; const o = m0(k); o.total += v.total; o.gan += v.ganancia; o.kg += v.cantidad * ((prod(v.producto) || {}).peso || 1); o.n++; });
+  const m0 = k => meses[k] || (meses[k] = { total: 0, gan: 0, kg: 0, n: 0, paq: 0, gastos: 0 });
+  D.ventas.forEach(v => { const k = mesDe(v.fecha); if (!k) return; const o = m0(k); o.total += v.total; o.gan += v.ganancia; o.kg += v.cantidad * ((prod(v.producto) || {}).peso || 1); o.paq += Number(v.cantidad || 0); o.n++; });
   D.gastos.forEach(g => { const k = mesDe(g.fecha); if (!k) return; m0(k).gastos += g.monto; });
   return Object.keys(meses).sort().map(k => Object.assign({ mes: k, real: meses[k].gan - meses[k].gastos }, meses[k]));
 }
@@ -868,7 +868,7 @@ function graficoMeses(meses, sel, tope, fila){
     <div class="mesesx">${meses.map(x => `<span class="${x.mes === balMes ? 'on' : ''}">${nombreMes(x.mes)}</span>`).join('')}</div>
     ${sel ? `<div style="margin-top:12px;font-weight:600">${nombreMes(sel.mes, true)} ${sel.mes.slice(0, 4)}</div>
     ${fila('Vendiste', plata(sel.total))}${fila('Ganancia de la yerba', plata(sel.gan))}${sel.gastos ? fila('Gastos', plata(sel.gastos), '−') : ''}${fila('Ganancia real', plata(sel.real), '', true)}
-    <div class="k" style="margin-top:4px">${sel.n} ${sel.n === 1 ? 'venta' : 'ventas'}, ${cant(sel.kg)} kg</div>` : ''}
+    <div class="k" style="margin-top:4px">${cant(sel.paq)} ${sel.paq === 1 ? 'paquete vendido' : 'paquetes vendidos'} en ${sel.n} ${sel.n === 1 ? 'venta' : 'ventas'}${Math.abs(sel.kg - sel.paq) > .01 ? ', ' + cant(sel.kg) + ' kg' : ''}</div>` : ''}
   </div>` : '<div class="card sub">Todavía no hay ventas.</div>';
 }
 function graficoLotes(fila){
