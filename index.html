@@ -535,17 +535,19 @@ function resumenMes(mes){
   const gastos = D.gastos.filter(g => mesDe(g.fecha) === mes).reduce((s, g) => s + g.monto, 0);
   return { total, gan, gastos, real: gan - gastos, n: vs.length, paq: vs.reduce((s, v) => s + Number(v.cantidad || 0), 0) };
 }
+function ladoCaja(){ const t = String(D.caja.control || ''); return /en contra/.test(t) || /-\s*\$?\s*\d|\$ -/.test(t) ? 'en contra' : (/a favor/.test(t) ? 'a favor' : ''); }
 function avisoCaja(){
-  const d = Math.abs(numDe(D.caja.control));
-  if (ocultar) return 'La caja tiene una diferencia: falta anotar algo (una venta, un gasto o un costo).';
-  return d ? 'La caja tiene una diferencia de ' + plata(d) + ': falta anotar algo (una venta, un gasto o un costo).' : 'La caja no cuadra: falta anotar algo.';
+  const d = Math.abs(numDe(D.caja.control)), lado = ladoCaja();
+  if (ocultar) return 'La caja tiene una diferencia' + (lado ? ' ' + lado : '') + ': falta anotar algo (una venta, un gasto o un costo).';
+  return d ? 'La caja tiene una diferencia de ' + plata(d) + (lado ? ' ' + lado + (lado === 'en contra' ? ' (falta plata o se pagó de más)' : ' (sobra plata)') : '') + ': falta anotar algo (una venta, un gasto o un costo).' : 'La caja no cuadra: falta anotar algo.';
 }
 function avisoLote(l){
   const suma = numDe(l.control);
   if (!suma || !l.pagado) return 'Lote ' + l.id + ': ' + l.control + '.';
   const dif = l.pagado - suma;
-  if (ocultar) return 'Lote ' + l.id + ': los costos cargados no suman lo que pagaste. Tocá «Ver» para ver cuánto ' + (dif > 0 ? 'falta' : 'sobra') + '.';
-  return 'Lote ' + l.id + ': pagaste ' + plata(l.pagado) + ', pero los costos cargados suman ' + plata(suma) + '. ' + (dif > 0 ? 'Faltan ' : 'Sobran ') + plata(Math.abs(dif)) + ' por anotar.';
+  const lado = dif > 0 ? 'en contra (pagaste de más)' : 'a favor (pagaste de menos)';
+  if (ocultar) return 'Lote ' + l.id + ': hay una diferencia ' + lado + ' entre lo que pagaste y lo que llegó. Tocá «Ver» para ver cuánto.';
+  return 'Lote ' + l.id + ': pagaste ' + plata(l.pagado) + ' y lo que llegó vale ' + plata(suma) + ': ' + plata(Math.abs(dif)) + ' ' + lado + '.';
 }
 function loteAbierto(){ return D.lotes.find(l => l.estado === 'Abierto'); }
 function proyeccion(){
@@ -1041,7 +1043,7 @@ function vCaja(){
     ${f('Pusiste de tu bolsillo', plata(k.bolsillo))}${f('Ganancia real acumulada', plata(k.gananciaReal))}${f('Sacaste para vos', plata(k.retiros))}${f('Vale tu negocio hoy', plata(k.valeNegocio))}
   </div>
   <h2>Dónde está</h2><div class="list">
-    ${f('En caja', plata(k.enCaja))}${f('En yerba sin vender', plata(k.enStock))}${f('Te deben', plata(k.teDeben))}${f('Control', String(k.control).indexOf('Cuadra') >= 0 ? 'Cuadra' : 'Diferencia de ' + plata(Math.abs(numDe(k.control))), String(k.control).indexOf('Cuadra') >= 0 ? 'ok' : 'warn')}
+    ${f('En caja', plata(k.enCaja))}${f('En yerba sin vender', plata(k.enStock))}${f('Te deben', plata(k.teDeben))}${f('Control', String(k.control).indexOf('Cuadra') >= 0 ? 'Cuadra' : plata(Math.abs(numDe(k.control))) + (ladoCaja() ? ' ' + ladoCaja() : ' de diferencia'), String(k.control).indexOf('Cuadra') >= 0 ? 'ok' : (ladoCaja() === 'a favor' ? 'ok' : 'warn'))}
   </div>
   <h2>Fondo para promociones</h2><div class="card"><div style="font-size:14px">${Math.round(k.fondoPct * 100)}% de la ganancia. Disponible: <b>${plata(k.fondoDisponible)}</b>.</div></div>
   <div class="grid2" style="margin-top:18px"><button class="btn sec" data-a="mov" data-t="Aporte">Puse plata</button><button class="btn sec" data-a="mov" data-t="Retiro">Saqué plata</button></div>`;
