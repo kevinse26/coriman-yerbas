@@ -238,7 +238,7 @@ nav.tabs .menos{display:none}
 <script>
 const ENVIVO = typeof google !== 'undefined' && google.script && google.script.run;
 /* Preferencias de este celular (Más → Configuración). */
-const VERSION = '2026.11.25';
+const VERSION = '2026.11.27';
 const GUIA_URL = 'https://docs.google.com/document/d/152mhs0PQLR-8Q6UzKP-7ugZpGCis1MEtNQQRyEb5wR0/view';
 let PREF = { tema: 'auto', ocultarAlAbrir: true, pinVolver: 0, medio: 'Transferencia' };
 try { Object.assign(PREF, JSON.parse(localStorage.getItem('yerba_pref') || '{}')); } catch (e) {}
@@ -618,7 +618,7 @@ function vInicio(){
       <div style="display:flex;justify-content:space-between" class="k"><span>Vendiste ${cant(lote.vendido)} de ${cant(lote.paraVender)} ${unidad()}</span><span>${Math.round(pct * 100)}%</span></div>
       <div class="bar" style="margin:8px 0 10px"><div style="width:${Math.round(pct * 100)}%"></div></div>
       <div style="font-size:14px">Si vendés lo que queda: <b>${plata(pr.ventas)}</b>, y ganás <b>${plata(pr.gan)}</b>.</div>
-      <div class="k" style="margin-top:4px">Para reponer un lote igual necesitás ${plata(D.caja.proximoLote)}. Podés retirar ${plata(D.caja.podesRetirar)}.</div>
+      <div class="k" style="margin-top:4px">Para reponer un lote igual necesitás ${plata(D.caja.proximoLote)}. Hoy tenés ${plata(D.caja.enCaja)}${D.caja.teDeben ? ' y, si cobrás lo que te deben, ' + plata(D.caja.enCaja + D.caja.teDeben) : ''}. Podés retirar ${plata(D.caja.podesRetirar)}.</div>
     </div>`;
   }
   html += `<h2>Stock</h2><div class="list">` + D.productos.map(p => `
@@ -1029,7 +1029,10 @@ function vCaja(){
   const k = D.caja, f = (t, v, cls) => `<div class="row"><span>${t}</span><span class="${cls || ''}" style="font-weight:600">${v}</span></div>`;
   return `${volver()}${cabecera('Caja')}
   <div class="card"><div class="k">Plata en caja</div><div class="num">${plata(k.enCaja)}</div>
-  <div class="k" style="margin-top:4px">Podés retirar ${plata(k.podesRetirar)}. Para el próximo lote hacen falta ${plata(k.proximoLote)}.</div></div>
+  <div class="k" style="margin-top:4px">Podés retirar ${plata(k.podesRetirar)}.</div></div>
+  <h2>Para el próximo lote</h2><div class="list">
+    ${f('Con lo que ya cobraste', plata(k.enCaja), k.enCaja >= k.proximoLote ? 'ok' : '')}${f('Si cobrás lo que te deben', plata(k.enCaja + k.teDeben), k.enCaja + k.teDeben >= k.proximoLote ? 'ok' : 'warn')}${f('Lo que cuesta (igual al último)', plata(k.proximoLote))}
+  </div>
   ${k.reinvertida < 0 ? `<div class="aviso sol" style="margin-top:8px"><i class="ti ti-alert-triangle"></i><span>Sacaste ${plata(-k.reinvertida)} más de lo que ganó el negocio. Para volver a estar en camino, poné ${plata(-k.reinvertida)}.</span></div>` : ''}
   <h2>De dónde sale</h2><div class="list">
     ${f('Pusiste de tu bolsillo', plata(k.bolsillo))}${f('Ganancia real acumulada', plata(k.gananciaReal))}${f('Sacaste para vos', plata(k.retiros))}${f('Vale tu negocio hoy', plata(k.valeNegocio))}
