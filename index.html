@@ -459,7 +459,8 @@ const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto'
 const DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 function fechaTxt(iso){ if (!iso) return ''; if (iso === D.hoy) return 'hoy'; if (iso === sumarDias(D.hoy, -1)) return 'ayer'; const [y,m,d] = iso.split('-'); return d + '/' + m; }
 function sumarDias(iso, n){ const [y,m,d] = iso.split('-').map(Number); const f = new Date(y, m - 1, d + n); return f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2,'0') + '-' + String(f.getDate()).padStart(2,'0'); }
-function wa(numero, texto){ const n = String(numero).replace(/\D/g,''); return 'https://wa.me/' + n + (texto ? '?text=' + encodeURIComponent(texto) : ''); }
+function wa(numero, texto){ const n = String(numero || '').replace(/\D/g,''); return 'https://wa.me/' + n + (texto ? '?text=' + encodeURIComponent(texto) : ''); }
+function waElegir(c){ const nom = c ? String(c.nombre).split(' ')[0] : ''; toast('Elegí a ' + (c ? c.nombre : 'la persona') + ' en WhatsApp'); return abrir(wa('', (c && c.mensaje) || ('Hola ' + nom + '!'))); }
 function abrir(url){ window.open(url, '_blank'); }
 function prod(nombre){ return D.productos.find(p => p.nombre === nombre); }
 function cliente(nombre){ return D.clientes.find(c => norm(c.nombre) === norm(nombre)); }
@@ -640,7 +641,7 @@ function vInicio(){
 }
 function filaContacto(c){
   return `<div class="row"><span>${esc(c.nombre)}<div class="k">${c.ultima ? 'Última compra ' + fechaTxt(c.ultima) : 'Sin compras'}</div></span>
-    ${c.wa ? `<button class="chip" data-a="wa" data-c="${esc(c.nombre)}" aria-label="WhatsApp a ${esc(c.nombre)}"><i class="ti ti-brand-whatsapp ok"></i> Escribir</button>` : `<button class="chip" data-a="cli" data-c="${esc(c.nombre)}"><i class="ti ti-plus"></i> Su WhatsApp</button>`}</div>`;
+    <button class="chip" data-a="wa" data-c="${esc(c.nombre)}" aria-label="WhatsApp a ${esc(c.nombre)}"><i class="ti ti-brand-whatsapp ok"></i> Escribir</button></div>`;
 }
 
 /* ------------------------------------------------------------ VENDER */
@@ -756,14 +757,14 @@ function hojaVenta(i){
       ${x.estado === 'Pendiente' && !x.anulada && x.origen === 'compu' ? `<button class="btn" data-h="pagada">Marcar como cobrada</button>` : ''}
       ${x.estado === 'Reservado' && !x.anulada ? `<div class="k">Reservada: todavía no cuenta como venta.</div><button class="btn" data-h="entregar"><i class="ti ti-check"></i> Se la entregué y me pagó</button><button class="btn sec" data-h="entregarDebe">Se la entregué, me debe</button>` : ''}
       ${x.anulada ? '' : `<button class="btn sec" data-h="editar"><i class="ti ti-pencil"></i> Editar venta</button>`}
-      ${c && c.wa ? `<button class="btn sec" data-h="wa"><i class="ti ti-brand-whatsapp"></i> Escribirle</button>` : ''}
+      ${c ? `<button class="btn sec" data-h="wa"><i class="ti ti-brand-whatsapp"></i> Escribirle</button>` : ''}
       <button class="btn sec" data-h="anular" style="color:${x.anulada ? 'var(--hoja)' : 'var(--brasa)'}">${x.anulada ? 'Volver a contarla' : 'Anular venta (prueba o error)'}</button>
       <button class="btn sec" data-h="cerrar">Cerrar</button>
     </div>`, cap => {
     cap.querySelectorAll('[data-h]').forEach(b => b.onclick = async () => {
       const a = b.dataset.h;
       if (a === 'cerrar') return cerrarHoja();
-      if (a === 'wa') return abrir(wa(c.wa, c.mensaje));
+      if (a === 'wa') return c.wa ? abrir(wa(c.wa, c.mensaje)) : waElegir(c);
       if (a === 'editar') { cerrarHoja(); return editarVenta(x); }
       b.disabled = true;
       try {
@@ -809,10 +810,10 @@ function tarjetaCliente(c){
     ${c.lotes ? `<div class="k" style="margin-top:4px">Lotes: ${esc(String(c.lotes).replace(/\s·\s/g, ', '))}</div>` : ''}
     ${c.mensaje ? `<div class="mensaje">${esc(c.mensaje)}</div>` : ''}
     <div class="grid2">
-      ${c.wa ? `<button class="btn chico" data-a="wa" data-c="${esc(c.nombre)}"><i class="ti ti-brand-whatsapp"></i> Enviar</button>` : `<button class="btn chico sec" data-a="editCli" data-c="${esc(c.nombre)}">Cargar WhatsApp</button>`}
+      <button class="btn chico" data-a="wa" data-c="${esc(c.nombre)}"><i class="ti ti-brand-whatsapp"></i> Enviar</button>
       <button class="btn chico sec" data-a="venderA" data-c="${esc(c.nombre)}">Venderle</button>
     </div>
-    ${c.wa ? `<button class="k" data-a="editCli" data-c="${esc(c.nombre)}" style="margin-top:8px;text-decoration:underline">Editar WhatsApp o zona</button>` : ''}
+    ${c.wa ? `<button class="k" data-a="editCli" data-c="${esc(c.nombre)}" style="margin-top:8px;text-decoration:underline">Editar WhatsApp o zona</button>` : `<div class="k" style="margin-top:8px">No tiene número cargado: «Enviar» abre WhatsApp para que lo elijas de tus contactos. <button data-a="editCli" data-c="${esc(c.nombre)}" style="text-decoration:underline;color:inherit">Cargar su número</button></div>`}
   </div>`;
 }
 function hojaCliente(c){
@@ -820,9 +821,20 @@ function hojaCliente(c){
   hoja(`<h2>${nuevo ? 'Cliente nuevo' : esc(c.nombre)}</h2><div class="stack">
     ${nuevo ? `<label class="campo"><span>Nombre y apellido</span><input id="fNom" autocomplete="off"></label>` : ''}
     <label class="campo"><span>WhatsApp</span><input id="fWa" inputmode="tel" placeholder="+54 9 343 555-0000" value="${esc(c ? c.wa : '')}"></label>
+    ${'contacts' in navigator && navigator.contacts && navigator.contacts.select ? '<button class="chip" id="fAgenda" style="align-self:flex-start"><i class="ti ti-address-book"></i> Elegir de mis contactos</button>' : ''}
     <label class="campo"><span>Barrio o zona</span><input id="fZona" value="${esc(c ? c.zona : '')}"></label>
     ${nuevo ? `<label class="campo"><span>Quién te lo recomendó (opcional)</span><select id="fRef"><option value="">Nadie</option>${D.clientes.map(x => `<option>${esc(x.nombre)}</option>`).join('')}</select></label>` : ''}
     <button class="btn" id="fOk">Guardar</button><button class="btn sec" onclick="cerrarHoja()">Cancelar</button></div>`, () => {
+    const ag = $('#fAgenda');
+    if (ag) ag.onclick = async () => {
+      try {
+        const [ct] = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+        if (!ct) return;
+        const tel = (ct.tel || [])[0]; if (tel) $('#fWa').value = tel;
+        if (nuevo && !$('#fNom').value.trim() && (ct.name || [])[0]) $('#fNom').value = ct.name[0];
+        if (!tel) toast('Ese contacto no tiene número');
+      } catch (e) { toast('No se pudo abrir la agenda'); }
+    };
     $('#fOk').onclick = async () => {
       const datos = { nombre: nuevo ? $('#fNom').value.trim() : c.nombre, wa: $('#fWa').value.trim(), zona: $('#fZona').value.trim(), referido: nuevo ? $('#fRef').value : '' };
       if (!datos.nombre) return toast('Escribí el nombre');
@@ -1064,6 +1076,8 @@ function hojaMov(tipo){
   });
 }
 let PL = (() => { try { return JSON.parse(localStorage.getItem('yerba_plan')) || {}; } catch (e) { return {}; } })();
+function planGuardarLocal(){ try { localStorage.setItem('yerba_plan', JSON.stringify(PL)); } catch (e) {} }
+const pesoPres = pr => pr === '500g' ? .5 : 1;
 function planCalc(){
   const k = D.caja, def = (Number(k.enCaja) || 0) + (Number(k.teDeben) || 0);
   const pres = Number(PL.pres) > 0 ? Number(PL.pres) : def;
@@ -1075,6 +1089,11 @@ function planCalc(){
     const fijo = ff !== undefined && ff !== '' ? Number(ff) : null;
     return { p, c, fijo, w: (vend[p.nombre] || 0) + 1, q: fijo !== null ? fijo : 0 };
   });
+  (PL.nuevas || []).forEach((n, j) => {
+    const fijo = n.fijo !== undefined && n.fijo !== '' ? Number(n.fijo) : null;
+    filas.push({ p: { nombre: String(n.nombre || '').trim() || 'Yerba nueva', peso: pesoPres(n.pres), precio: Number(n.precio) || 0, costo: Number(n.costo) || 0, nueva: true, pres: n.pres || '1kg', j },
+      c: Number(n.costo) || 0, fijo, w: 1, q: fijo !== null ? fijo : 0 });
+  });
   // Reparte de a un paquete: siempre a la yerba que más se vende en proporción a lo que ya lleva, mientras alcance la plata.
   for (let i = 0; i < 500; i++) {
     const resto = pres - filas.reduce((a, f) => a + f.q * f.c, 0);
@@ -1085,31 +1104,65 @@ function planCalc(){
     mejor.f.q++;
   }
   const suma = fn => filas.reduce((a, f) => a + fn(f), 0);
-  return { def, pres, meta, filas, paq: suma(f => f.q), total: suma(f => f.q * f.c), kg: suma(f => f.q * (f.p.peso || 1)), gan: suma(f => f.q * ((f.p.precio || 0) - f.c)) };
+  return { def, pres, meta, filas, paq: suma(f => f.q), total: suma(f => f.q * f.c), kg: suma(f => f.q * (f.p.peso || 1)), gan: suma(f => f.p.precio > 0 ? f.q * (f.p.precio - f.c) : 0), sinPrecio: filas.some(f => f.q > 0 && !(f.p.precio > 0)) };
+}
+function planFoto(r){
+  return { fecha: D.hoy, total: Math.round(r.total), kg: r.kg,
+    items: r.filas.filter(f => f.q > 0).map(f => ({ nombre: f.p.nombre, nueva: !!f.p.nueva, pres: f.p.pres || '', peso: f.p.peso || 1, paquetes: f.q, costo: f.c, precio: f.p.precio || 0 })),
+    plan: JSON.parse(JSON.stringify(Object.assign({}, PL, { guardado: undefined }))) };
+}
+function planItemsLote(items){
+  return items.map(it => it.nueva && !prod(it.nombre)
+    ? { producto: '__nueva', nNombre: it.nombre, nPres: it.pres === '500g' ? '500g' : '1kg', nPrecio: it.precio ? String(it.precio) : '', paquetes: String(it.paquetes), costoKg: it.costo ? String(Math.round(it.costo / (it.peso || 1))) : '' }
+    : { producto: it.nombre, paquetes: String(it.paquetes), costoKg: it.costo ? String(Math.round(it.costo / (it.peso || 1))) : '' });
 }
 function vProximo(){
-  const r = planCalc();
+  const r = planCalc(), g = PL.guardado;
   const inp = 'width:100%;border:0;border-bottom:1.5px solid var(--linea);background:transparent;font-size:16px;padding:4px 0;outline:none';
-  return `${volver()}${cabecera('Próximo lote', '<button class="chip" data-a="planLimpiar"><i class="ti ti-eraser"></i> Limpiar</button>')}
-  <div class="k" style="margin-bottom:10px">Poné cuánto querés invertir y, si querés, cuántos paquetes querés sí o sí de alguna yerba. Te sugiero el resto para llegar lo más cerca posible a esa plata sin pasarte, según lo que más vendés.</div>
-  <label class="campo"><span>Cuánto querés invertir</span><input data-pl="pres" inputmode="numeric" placeholder="${plata(r.def)}" value="${esc(PL.pres || '')}"></label>
-  <div class="k" style="margin:6px 2px 10px">Si lo dejás vacío uso lo que tenés si cobrás todo lo que te deben (${plata(r.def)}).</div>
-  <div class="grid2">
-    <label class="campo"><span>Paquetes que vas a comprar</span><input data-pl="paq" inputmode="numeric" placeholder="los que alcancen" value="${esc(PL.paq || '')}"></label>
-    <label class="campo"><span>Mínimo entre los dos (kg)</span><input data-pl="minimo" inputmode="numeric" placeholder="50" value="${esc(PL.minimo || '')}"></label>
-  </div>
-  <div class="k" style="margin:6px 2px 4px">Si tu socio ya sabe cuánto compra, poné acá la diferencia (ej: si él compra 30, vos 20).</div>
-  <h2>Yerbas</h2><div class="stack">${r.filas.map((f, i) => `<div class="card" style="padding:10px 12px">
+  const nCat = D.productos.length;
+  const tarjeta = (f, i) => f.p.nueva ? `<div class="card" style="padding:10px 12px;border:1.5px dashed var(--linea)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="k">Yerba nueva</span><span style="display:flex;gap:8px;align-items:center"><span class="k" id="plSub${i}"></span><button class="chip" data-a="planQuitarNueva" data-j="${f.p.j}" aria-label="Quitar"><i class="ti ti-x"></i></button></span></div>
+    <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-top:4px;align-items:end">
+      <label><span class="k">Nombre</span><input data-pn="nombre" data-j="${f.p.j}" placeholder="Ej: Canarias Tradicional" value="${esc((PL.nuevas[f.p.j] || {}).nombre || '')}" style="${inp}"></label>
+      <label><span class="k">Paquete de</span><select data-pn="pres" data-j="${f.p.j}" style="${inp}"><option ${f.p.pres !== '500g' ? 'selected' : ''}>1kg</option><option ${f.p.pres === '500g' ? 'selected' : ''}>500g</option></select></label>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr .8fr;gap:10px;margin-top:6px;align-items:end">
+      <label><span class="k">Costo</span><input data-pn="costo" data-j="${f.p.j}" inputmode="numeric" placeholder="por paquete" value="${esc((PL.nuevas[f.p.j] || {}).costo || '')}" style="${inp}"></label>
+      <label><span class="k">Venta</span><input data-pn="precio" data-j="${f.p.j}" inputmode="numeric" placeholder="opcional" value="${esc((PL.nuevas[f.p.j] || {}).precio || '')}" style="${inp}"></label>
+      <label><span class="k">Sí o sí</span><input data-pn="fijo" data-j="${f.p.j}" inputmode="numeric" placeholder="sugerir" value="${esc((PL.nuevas[f.p.j] || {}).fijo ?? '')}" style="${inp}"></label>
+      <div style="text-align:center"><div class="k">Sugerencia</div><div class="num" style="font-size:24px" id="plQ${i}"></div></div>
+    </div></div>`
+  : `<div class="card" style="padding:10px 12px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b>${esc(corto(f.p.nombre))}</b><span class="k" id="plSub${i}"></span></div>
     <div style="display:grid;grid-template-columns:1fr 1fr .8fr;gap:10px;margin-top:6px;align-items:end">
       <label><span class="k">Costo por paquete</span><input data-pl="costo" data-n="${esc(f.p.nombre)}" inputmode="numeric" placeholder="${f.p.costo ? pesos(f.p.costo) : 'poné el costo'}" value="${esc((PL.costo || {})[f.p.nombre] || '')}" style="${inp}"></label>
       <label><span class="k">Quiero sí o sí</span><input data-pl="fijo" data-n="${esc(f.p.nombre)}" inputmode="numeric" placeholder="sugerir" value="${esc((PL.fijo || {})[f.p.nombre] ?? '')}" style="${inp}"></label>
       <div style="text-align:center"><div class="k">Sugerencia</div><div class="num" style="font-size:24px" id="plQ${i}"></div></div>
-    </div></div>`).join('')}</div>
-  <div class="k" style="margin:6px 2px 0">El costo vacío usa el último que pagaste. En «Quiero sí o sí», vacío = que lo sugiera y 0 = no comprar esa yerba.</div>
+    </div></div>`;
+  const guardado = g ? `<div class="card" style="border:1.5px solid var(--hoja);margin-bottom:6px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><b><i class="ti ti-bookmark"></i> Armado guardado</b><span class="k">${fechaTxt(g.fecha)}</span></div>
+    <div style="margin-top:6px">${g.items.map(it => `<div class="row" style="padding:4px 0"><span>${cant(it.paquetes)} ${esc(corto(it.nombre))}${it.nueva ? ' <span class="k">(nueva)</span>' : ''}</span><span class="k">${plata(it.paquetes * it.costo)}</span></div>`).join('')}</div>
+    ${filaBal('Total', plata(g.total), '', true)}${filaBal('Kilos', cant(g.kg) + ' kg')}
+    <button class="btn" data-a="planComprar" data-src="guardado" style="margin-top:10px"><i class="ti ti-check"></i> Lo compré así: pasarlo a Lotes</button>
+    <div class="grid2" style="margin-top:8px"><button class="btn sec chico" data-a="planEditarGuardado"><i class="ti ti-pencil"></i> Cambiarlo</button><button class="btn sec chico" data-a="planBorrarGuardado" style="color:var(--brasa)">Borrarlo</button></div>
+  </div>` : '';
+  return `${volver()}${cabecera('Próximo lote', '<button class="chip" data-a="planLimpiar"><i class="ti ti-eraser"></i> Limpiar</button>')}
+  ${guardado}
+  <div class="k" style="margin-bottom:10px">${g ? 'Abajo podés armar otro: el guardado no cambia hasta que lo cambies o lo borres.' : 'Poné cuánto querés invertir y, si querés, cuántos paquetes querés sí o sí de alguna yerba. Te sugiero el resto para llegar lo más cerca posible a esa plata sin pasarte, según lo que más vendés.'}</div>
+  <label class="campo"><span>Cuánto querés invertir</span><input data-pl="pres" inputmode="numeric" placeholder="${plata(r.def)}" value="${esc(PL.pres || '')}"></label>
+  <div class="k" style="margin:6px 2px 10px">Si lo dejás vacío uso lo que tenés si cobrás todo lo que te deben (${plata(r.def)}).</div>
+  <div class="grid2">
+    <label class="campo"><span>Paquetes que comprás vos</span><input data-pl="paq" inputmode="numeric" placeholder="los que alcancen" value="${esc(PL.paq || '')}"></label>
+    <label class="campo"><span>Kilos de tu socio</span><input data-pl="socio" inputmode="numeric" placeholder="si ya sabés" value="${esc(PL.socio || '')}"></label>
+  </div>
+  <label class="campo" style="margin-top:8px"><span>Mínimo de la distribuidora entre los dos (kg)</span><input data-pl="minimo" inputmode="numeric" placeholder="50" value="${esc(PL.minimo || '')}"></label>
+  <div class="k" style="margin:6px 2px 4px">Los 50 kg son el mínimo: entre los dos pueden comprar más. Ej: vos 30 y tu socio 25 = 55 kg.</div>
+  <h2>Yerbas</h2><div class="stack">${r.filas.map(tarjeta).join('')}</div>
+  <button class="chip" data-a="planNueva" style="margin-top:10px"><i class="ti ti-plus"></i> Agregar otra yerba (ej: Canarias)</button>
+  <div class="k" style="margin:6px 2px 0">El costo vacío usa el último que pagaste. En «Quiero sí o sí», vacío = que lo sugiera y 0 = no comprar esa yerba. Una yerba nueva se agrega sola al catálogo cuando pasás el lote a Lotes.</div>
   <h2>Resumen</h2><div class="card" id="plRes"></div>
-  <button class="btn" data-a="planComprar" style="margin-top:14px"><i class="ti ti-check"></i> Lo compré así: pasarlo a Lotes</button>
-  <div class="k" style="margin:6px 2px 0;text-align:center">Se abre el lote nuevo ya completo para que lo revises antes de guardar.</div>`;
+  <div class="grid2" style="margin-top:14px"><button class="btn sec" data-a="planGuardar"><i class="ti ti-bookmark"></i> ${g ? 'Guardar este en su lugar' : 'Guardar armado'}</button><button class="btn" data-a="planComprar"><i class="ti ti-check"></i> Lo compré así</button></div>
+  <div class="k" style="margin:6px 2px 0;text-align:center">«Guardar» lo deja anotado para cuando lo compres. «Lo compré así» abre el lote nuevo completo para revisarlo, agregarle algo y guardarlo en Lotes.</div>`;
 }
 function planPintarRes(){
   if (!$('#plRes')) return;
@@ -1119,10 +1172,14 @@ function planPintarRes(){
     if (q) q.textContent = f.c > 0 || f.q ? cant(f.q) : '-';
     if (sb) sb.textContent = f.q && f.c ? plata(f.q * f.c) : (f.c > 0 ? '' : 'sin costo: no la sumo');
   });
-  const min = Number(PL.minimo) > 0 ? Number(PL.minimo) : 50, socio = Math.max(0, min - r.kg);
+  const min = Number(PL.minimo) > 0 ? Number(PL.minimo) : 50, socio = Number(PL.socio) > 0 ? Number(PL.socio) : null;
+  const juntos = socio !== null ? r.kg + socio : null;
+  const lineaSocio = socio !== null
+    ? filaBal('Tu socio', cant(socio) + ' kg') + filaBal('Entre los dos', cant(juntos) + ' kg ' + (juntos >= min ? '✓' : '· faltan ' + cant(min - juntos) + ' kg'), '', true)
+    : filaBal('Tu socio tiene que comprar', r.kg >= min ? 'nada, ya llegás a ' + min + ' kg' : 'al menos ' + cant(min - r.kg) + ' kg');
   $('#plRes').innerHTML = `${filaBal('Paquetes', cant(r.paq))}${filaBal('Total del pedido', plata(r.total), '', true)}${filaBal('Te quedan sin usar', plata(r.pres - r.total))}
-    ${filaBal('Kilos tuyos', cant(r.kg) + ' kg')}${filaBal('Tu socio tiene que comprar', socio ? cant(socio) + ' kg' : 'nada, ya llegás a ' + min + ' kg')}
-    <div class="k" style="margin-top:8px">${r.total > r.pres ? 'Ojo: lo que querés sí o sí ya cuesta más que la plata que querés invertir.' : (r.meta !== Infinity && r.paq < r.meta ? 'Ojo: con esa plata te alcanza para ' + cant(r.paq) + ' de los ' + cant(r.meta) + ' paquetes. ' : '') + 'Si vendés todo a los precios de hoy, ganás unos ' + plata(r.gan) + '. La sugerencia reparte según lo que más vendiste.'}</div>`;
+    ${filaBal('Kilos tuyos', cant(r.kg) + ' kg')}${lineaSocio}
+    <div class="k" style="margin-top:8px">${r.total > r.pres ? 'Ojo: lo que querés sí o sí ya cuesta más que la plata que querés invertir.' : (r.meta !== Infinity && r.paq < r.meta ? 'Ojo: con esa plata te alcanza para ' + cant(r.paq) + ' de los ' + cant(r.meta) + ' paquetes. ' : '') + (socio !== null && juntos < min ? 'Entre los dos no llegan al mínimo de ' + min + ' kg. ' : '') + 'Si vendés todo a los precios de hoy, ganás unos ' + plata(r.gan) + (r.sinPrecio ? ' (sin contar las yerbas que todavía no tienen precio de venta)' : '') + '. La sugerencia reparte según lo que más vendiste.'}</div>`;
 }
 function vLotes(){
   return `${volver()}${cabecera('Lotes', '<button class="chip on" data-a="nuevoLote"><i class="ti ti-plus"></i> Nuevo</button>')}
@@ -1262,9 +1319,13 @@ function enlazar(){
   app.querySelectorAll('[data-pl]').forEach(el => el.oninput = () => {
     const v = el.value.replace(/\D/g, ''), t = el.dataset.pl;
     if (t === 'costo' || t === 'fijo') { PL[t] = PL[t] || {}; if (v === '') delete PL[t][el.dataset.n]; else PL[t][el.dataset.n] = v; } else PL[t] = v;
-    try { localStorage.setItem('yerba_plan', JSON.stringify(PL)); } catch (e) {}
-    planPintarRes();
+    planGuardarLocal(); planPintarRes();
   });
+  app.querySelectorAll('[data-pn]').forEach(el => { const fn = () => {
+    const n = (PL.nuevas || [])[Number(el.dataset.j)]; if (!n) return;
+    const t = el.dataset.pn; n[t] = t === 'nombre' || t === 'pres' ? el.value : el.value.replace(/\D/g, '');
+    planGuardarLocal(); planPintarRes();
+  }; el.oninput = fn; el.onchange = fn; });
   planPintarRes();
   const ib = $('#inBuscar');
   if (ib) ib.oninput = () => { busqueda = ib.value; const pos = ib.selectionStart; pintar(); const n = $('#inBuscar'); n.focus(); n.setSelectionRange(pos, pos); };
@@ -1273,7 +1334,7 @@ async function accion(a, el){
   const d = el.dataset;
   switch (a) {
     case 'ojo': ocultar = !ocultar; try { localStorage.setItem('yerba_ocultar', ocultar ? '1' : '0'); } catch (e) {} return pintar();
-    case 'wa': { const c = cliente(d.c); return c && c.wa ? abrir(wa(c.wa, c.mensaje)) : hojaCliente(c); }
+    case 'wa': { const c = cliente(d.c); return c && c.wa ? abrir(wa(c.wa, c.mensaje)) : waElegir(c); }
     case 'cli': case 'editCli': return hojaCliente(cliente(d.c));
     case 'verVentas': return ir('ventas');
     case 'cambiarPin': return hojaCambiarPin();
@@ -1317,14 +1378,23 @@ async function accion(a, el){
     case 'balVista': balVista = d.v; return pintar();
     case 'sub': sub = d.s || null; window.scrollTo(0, 0); return pintar();
     case 'planComprar': {
-      const r = planCalc();
-      const its = r.filas.filter(f => f.q > 0).map(f => ({ producto: f.p.nombre, paquetes: String(f.q), costoKg: f.c ? String(Math.round(f.c / (f.p.peso || 1))) : '' }));
-      if (!its.length) return toast('El armado todavía no tiene ninguna yerba');
+      const g = d.src === 'guardado' ? PL.guardado : planFoto(planCalc());
+      if (!g || !g.items.length) return toast('El armado todavía no tiene ninguna yerba');
+      if (g.items.some(it => it.nueva && !String(it.nombre).trim())) return toast('Ponele nombre a la yerba nueva');
       const ult = D.lotes.length ? D.lotes[D.lotes.length - 1] : null;
-      return hojaLote({ items: its, total: String(Math.round(r.total)), proveedor: ult && ult.proveedor ? ult.proveedor : '',
+      return hojaLote({ items: planItemsLote(g.items), total: String(g.total), proveedor: ult && ult.proveedor ? ult.proveedor : '',
         alGuardar: () => { PL = {}; try { localStorage.removeItem('yerba_plan'); } catch (e) {} sub = 'lotes'; } });
     }
-    case 'planLimpiar': PL = {}; try { localStorage.removeItem('yerba_plan'); } catch (e) {} return pintar();
+    case 'planGuardar': {
+      const f = planFoto(planCalc());
+      if (!f.items.length) return toast('El armado todavía no tiene ninguna yerba');
+      PL.guardado = f; planGuardarLocal(); window.scrollTo(0, 0); pintar(); return toast('Armado guardado. Cuando lo compres, tocá «Lo compré así».');
+    }
+    case 'planEditarGuardado': { const g = PL.guardado; if (!g) return; PL = Object.assign({}, g.plan || {}, { guardado: g }); planGuardarLocal(); return pintar(); }
+    case 'planBorrarGuardado': if (!confirm('¿Borrar el armado guardado?')) return; delete PL.guardado; planGuardarLocal(); return pintar();
+    case 'planNueva': PL.nuevas = PL.nuevas || []; PL.nuevas.push({ nombre: '', pres: '1kg', costo: '', precio: '', fijo: '' }); planGuardarLocal(); return pintar();
+    case 'planQuitarNueva': (PL.nuevas || []).splice(Number(d.j), 1); planGuardarLocal(); return pintar();
+    case 'planLimpiar': { const g = PL.guardado; PL = g ? { guardado: g } : {}; planGuardarLocal(); return pintar(); }
     case 'mov': return hojaMov(d.t);
     case 'irCaja': return hojaMov('Aporte');
     case 'salir': if (!confirm('¿Cerrar sesión en este celular? Vas a tener que entrar con Google y poner el PIN de nuevo.')) return;
