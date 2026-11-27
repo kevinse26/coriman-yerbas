@@ -224,12 +224,12 @@ nav.tabs .menos{display:none}
     <button data-v="vender" class="vender"><i class="ti ti-plus"></i>Vender</button>
     <button data-v="clientes"><i class="ti ti-users"></i>Clientes</button>
     <button data-v="mas"><i class="ti ti-dots"></i>Más</button>
-    <button data-v="mas" data-s="balance" class="subnav"><i class="ti ti-chart-bar"></i>Balance</button>
-    <button data-v="mas" data-s="caja" class="subnav"><i class="ti ti-cash"></i>Caja y retiros</button>
-    <button data-v="mas" data-s="lotes" class="subnav"><i class="ti ti-package"></i>Lotes</button>
     <button data-v="mas" data-s="proximo" class="subnav"><i class="ti ti-shopping-cart"></i>Próximo lote</button>
-    <button data-v="mas" data-s="gastos" class="subnav"><i class="ti ti-receipt-2"></i>Gastos</button>
+    <button data-v="mas" data-s="lotes" class="subnav"><i class="ti ti-package"></i>Lotes</button>
     <button data-v="mas" data-s="precios" class="subnav"><i class="ti ti-tag"></i>Precios y stock</button>
+    <button data-v="mas" data-s="gastos" class="subnav"><i class="ti ti-receipt-2"></i>Gastos</button>
+    <button data-v="mas" data-s="caja" class="subnav"><i class="ti ti-cash"></i>Caja y retiros</button>
+    <button data-v="mas" data-s="balance" class="subnav"><i class="ti ti-chart-bar"></i>Balance</button>
     <button data-v="config" class="subnav"><i class="ti ti-settings"></i>Configuración</button>
     <button class="menos" data-nav="cerrar"><i class="ti ti-chevron-up"></i>Menos</button>
   </div>
@@ -843,12 +843,12 @@ function vMas(){
   const lote = loteAbierto(); const baldo = D.productos[0];
   const item = (s, t, d, ic) => `<button class="card" style="text-align:left;display:flex;gap:12px;align-items:center" data-a="sub" data-s="${s}"><span class="mas-ic"><i class="ti ${ic}"></i></span><span style="flex:1"><span style="font-weight:600;font-size:16px">${t}</span><div class="k">${d}</div></span><i class="ti ti-chevron-right" style="font-size:20px;color:var(--gris)"></i></button>`;
   return `${cabecera('Más')}<div class="stack">
-    ${item('balance', 'Balance y ganancias', 'Dónde está la plata y cuánto ganás', 'ti-chart-bar')}
-    ${item('caja', 'Caja y retiros', 'Podés retirar ' + plata(D.caja.podesRetirar) + ' sin frenar el negocio', 'ti-cash')}
-    ${item('lotes', 'Lotes', lote ? 'Lote ' + lote.id + ' abierto · cargar uno nuevo' : 'Cargar un lote nuevo', 'ti-package')}
     ${item('proximo', 'Armar el próximo lote', 'Qué comprar según la plata que querés invertir', 'ti-shopping-cart')}
-    ${item('gastos', 'Gastos', 'Nafta, bolsas, publicidad y otros', 'ti-receipt-2')}
+    ${item('lotes', 'Lotes', lote ? 'Lote ' + lote.id + ' abierto · cargar uno nuevo' : 'Cargar un lote nuevo', 'ti-package')}
     ${item('precios', 'Precios y stock', baldo ? corto(baldo.nombre) + ' a ' + pesos(baldo.precio) : 'Cambiar precios', 'ti-tag')}
+    ${item('gastos', 'Gastos', 'Nafta, bolsas, publicidad y otros', 'ti-receipt-2')}
+    ${item('caja', 'Caja y retiros', 'Podés retirar ' + plata(D.caja.podesRetirar) + ' sin frenar el negocio', 'ti-cash')}
+    ${item('balance', 'Balance y ganancias', 'Dónde está la plata y cuánto ganás', 'ti-chart-bar')}
   </div>
   <button class="btn sec chico" data-a="recargar" style="margin-top:16px"><i class="ti ti-refresh"></i> Actualizar datos</button>
   <div style="margin-top:28px;text-align:center"><div class="marca" style="justify-content:center"><i></i>Coriman Yerbas</div>
