@@ -614,6 +614,7 @@ function vInicio(){
   const lote = loteAbierto(); const pr = proyeccion();
   const contactar = D.clientes.filter(c => c.estado === 'CONTACTAR HOY' && c.nombre !== PROPIO);
   const avisos = [];
+  if (PL.pedido) avisos.push(['sol', 'ti-truck-delivery', 'Tenés un lote pedido ' + cuandoPedido(PL.pedido.fecha, 'el') + ' esperando que llegue' + (ocultar ? '' : ' (' + plata(PL.pedido.total) + ')') + '. Cuando llegue: Más → Armar el próximo lote → Pendiente de entrega.']);
   const res = D.recientes.filter(r => !r.anulada && r.estado === 'Reservado');
   if (res.length) avisos.push(['sol', 'ti-bookmark', (res.length === 1 ? 'Tenés 1 reserva sin entregar: ' : 'Tenés ' + res.length + ' reservas sin entregar: ') + res.map(r => r.cliente + ' (' + cant(r.cantidad) + ' ' + corto(r.producto) + ')').join(', ') + '. Se entregan desde Ventas → Reservadas.']);
   if (D.caja.control && String(D.caja.control).indexOf('Cuadra') < 0) avisos.push(['sol', 'ti-scale', avisoCaja()]);
@@ -888,7 +889,7 @@ function vMas(){
   const lote = loteAbierto(); const baldo = D.productos[0];
   const item = (s, t, d, ic) => `<button class="card" style="text-align:left;display:flex;gap:12px;align-items:center" data-a="sub" data-s="${s}"><span class="mas-ic"><i class="ti ${ic}"></i></span><span style="flex:1"><span style="font-weight:600;font-size:16px">${t}</span><div class="k">${d}</div></span><i class="ti ti-chevron-right" style="font-size:20px;color:var(--gris)"></i></button>`;
   return `${cabecera('Más')}<div class="stack">
-    ${item('proximo', 'Armar el próximo lote', 'Qué comprar según la plata que querés invertir', 'ti-shopping-cart')}
+    ${item('proximo', 'Armar el próximo lote', PL.pedido ? 'Tenés un pedido pendiente de entrega' : 'Qué comprar según la plata que querés invertir', 'ti-shopping-cart')}
     ${item('lotes', 'Lotes', lote ? 'Lote ' + lote.id + ' abierto · cargar uno nuevo' : 'Cargar un lote nuevo', 'ti-package')}
     ${item('precios', 'Precios y stock', baldo ? corto(baldo.nombre) + ' a ' + pesos(baldo.precio) : 'Cambiar precios', 'ti-tag')}
     ${item('gastos', 'Gastos', 'Nafta, bolsas, publicidad y otros', 'ti-receipt-2')}
@@ -1108,6 +1109,10 @@ function hojaMov(tipo){
 }
 let PL = (() => { try { return JSON.parse(localStorage.getItem('yerba_plan')) || {}; } catch (e) { return {}; } })();
 function planGuardarLocal(){ try { localStorage.setItem('yerba_plan', JSON.stringify(PL)); } catch (e) {} }
+if (PL.guardado) { const g = PL.guardado; PL = Object.assign({}, g.plan || {}, PL.pedido ? { pedido: PL.pedido } : {}); planGuardarLocal(); }
+let planTab = null;
+const cuandoPedido = (iso, art) => { const t = fechaTxt(iso); return t === 'hoy' || t === 'ayer' ? (art === 'del' ? 'de ' : '') + t : art + ' ' + t; };
+const textoPago = pd => pd.pago === 'mio' ? 'Lo pagaste con tu plata' : pd.pago === 'parte' ? 'Pusiste ' + plata(pd.puso) + ' de tu plata y el resto salió del negocio' : 'Lo pagaste con la plata del negocio';
 const pesoPres = pr => pr === '500g' ? .5 : 1;
 function planCalc(){
   const k = D.caja, def = (Number(k.enCaja) || 0) + (Number(k.teDeben) || 0);
@@ -1140,7 +1145,7 @@ function planCalc(){
 function planFoto(r){
   return { fecha: D.hoy, total: Math.round(r.total), kg: r.kg,
     items: r.filas.filter(f => f.q > 0).map(f => ({ nombre: f.p.nombre, nueva: !!f.p.nueva, pres: f.p.pres || '', peso: f.p.peso || 1, paquetes: f.q, costo: f.c, precio: f.p.precio || 0 })),
-    plan: JSON.parse(JSON.stringify(Object.assign({}, PL, { guardado: undefined }))) };
+    plan: JSON.parse(JSON.stringify(Object.assign({}, PL, { guardado: undefined, pedido: undefined }))) };
 }
 function planItemsLote(items){
   return items.map(it => it.nueva && !prod(it.nombre)
@@ -1148,7 +1153,9 @@ function planItemsLote(items){
     : { producto: it.nombre, paquetes: String(it.paquetes), costoKg: it.costo ? String(Math.round(it.costo / (it.peso || 1))) : '' });
 }
 function vProximo(){
-  const r = planCalc(), g = PL.guardado;
+  const r = planCalc(), pd = PL.pedido;
+  if (!planTab) planTab = pd ? 'pendiente' : 'armar';
+  if (planTab === 'pendiente') return vPendiente();
   const inp = 'width:100%;border:0;border-bottom:1.5px solid var(--linea);background:transparent;font-size:16px;padding:4px 0;outline:none';
   const nCat = D.productos.length;
   const tarjeta = (f, i) => f.p.nueva ? `<div class="card" style="padding:10px 12px;border:1.5px dashed var(--linea)">
@@ -1170,16 +1177,9 @@ function vProximo(){
       <label><span class="k">Quiero sí o sí</span><input data-pl="fijo" data-n="${esc(f.p.nombre)}" inputmode="numeric" placeholder="sugerir" value="${esc((PL.fijo || {})[f.p.nombre] ?? '')}" style="${inp}"></label>
       <div style="text-align:center"><div class="k">Sugerencia</div><div class="num" style="font-size:24px" id="plQ${i}"></div></div>
     </div></div>`;
-  const guardado = g ? `<div class="card" style="border:1.5px solid var(--hoja);margin-bottom:6px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline"><b><i class="ti ti-bookmark"></i> Armado guardado</b><span class="k">${fechaTxt(g.fecha)}</span></div>
-    <div style="margin-top:6px">${g.items.map(it => `<div class="row" style="padding:4px 0"><span>${cant(it.paquetes)} ${esc(corto(it.nombre))}${it.nueva ? ' <span class="k">(nueva)</span>' : ''}</span><span class="k">${plata(it.paquetes * it.costo)}</span></div>`).join('')}</div>
-    ${filaBal('Total', plata(g.total), '', true)}${filaBal('Kilos', cant(g.kg) + ' kg')}
-    <button class="btn" data-a="planComprar" data-src="guardado" style="margin-top:10px"><i class="ti ti-check"></i> Lo compré así: pasarlo a Lotes</button>
-    <div class="grid2" style="margin-top:8px"><button class="btn sec chico" data-a="planEditarGuardado"><i class="ti ti-pencil"></i> Cambiarlo</button><button class="btn sec chico" data-a="planBorrarGuardado" style="color:var(--brasa)">Borrarlo</button></div>
-  </div>` : '';
   return `${volver()}${cabecera('Próximo lote', '<button class="chip" data-a="planLimpiar"><i class="ti ti-eraser"></i> Limpiar</button>')}
-  ${guardado}
-  <div class="k" style="margin-bottom:10px">${g ? 'Abajo podés armar otro: el guardado no cambia hasta que lo cambies o lo borres.' : 'Poné cuánto querés invertir y, si querés, cuántos paquetes querés sí o sí de alguna yerba. Te sugiero el resto para llegar lo más cerca posible a esa plata sin pasarte, según lo que más vendés.'}</div>
+  ${pestanasPlan()}
+  <div class="k" style="margin-bottom:10px">Poné cuánto querés invertir y, si querés, cuántos paquetes querés sí o sí de alguna yerba. Te sugiero el resto para llegar lo más cerca posible a esa plata sin pasarte, según lo que más vendés.</div>
   <label class="campo"><span>Cuánto querés invertir</span><input data-pl="pres" inputmode="numeric" placeholder="${plata(r.def)}" value="${esc(PL.pres || '')}"></label>
   <div class="k" style="margin:6px 2px 10px">Si lo dejás vacío uso lo que tenés si cobrás todo lo que te deben (${plata(r.def)}).</div>
   <div class="grid2">
@@ -1192,8 +1192,64 @@ function vProximo(){
   <button class="chip" data-a="planNueva" style="margin-top:10px"><i class="ti ti-plus"></i> Agregar otra yerba (ej: Canarias)</button>
   <div class="k" style="margin:6px 2px 0">El costo vacío usa el último que pagaste. En «Quiero sí o sí», vacío = que lo sugiera y 0 = no comprar esa yerba. Una yerba nueva se agrega sola al catálogo cuando pasás el lote a Lotes.</div>
   <h2>Resumen</h2><div class="card" id="plRes"></div>
-  <div class="grid2" style="margin-top:14px"><button class="btn sec" data-a="planGuardar"><i class="ti ti-bookmark"></i> ${g ? 'Guardar este en su lugar' : 'Guardar armado'}</button><button class="btn" data-a="planComprar"><i class="ti ti-check"></i> Lo compré así</button></div>
-  <div class="k" style="margin:6px 2px 0;text-align:center">«Guardar» lo deja anotado para cuando lo compres. «Lo compré así» abre el lote nuevo completo para revisarlo, agregarle algo y guardarlo en Lotes.</div>`;
+  ${pd ? `<div class="aviso sol" style="margin-top:14px"><i class="ti ti-truck-delivery"></i><span>Ya tenés un pedido esperando que llegue. Cargalo cuando llegue (o borralo) antes de hacer otro.</span></div>`
+    : `<button class="btn" data-a="planPedir" style="margin-top:14px"><i class="ti ti-truck-delivery"></i> Hice el pedido</button>
+  <div class="k" style="margin:6px 2px 0;text-align:center">Queda en «Pendiente de entrega» hasta que te llegue. Ahí lo cargás como lote nuevo.</div>`}`;
+}
+function pestanasPlan(){
+  const pd = PL.pedido;
+  return `<div class="chips" style="margin:0 0 12px">
+    <button class="chip ${planTab === 'armar' ? 'on' : ''}" data-a="planTab" data-t="armar"><i class="ti ti-calculator"></i> Armar</button>
+    <button class="chip ${planTab === 'pendiente' ? 'on' : ''}" data-a="planTab" data-t="pendiente"><i class="ti ti-truck-delivery"></i> Pendiente de entrega${pd ? ' (1)' : ''}</button></div>`;
+}
+function vPendiente(){
+  const pd = PL.pedido;
+  const cab = `${volver()}${cabecera('Próximo lote')}${pestanasPlan()}`;
+  if (!pd) return cab + `<div class="card sub">No hay ningún pedido esperando. Armalo en «Armar» y tocá «Hice el pedido».</div>`;
+  return cab + `<div class="card" style="border:1.5px solid var(--hoja)">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><b><i class="ti ti-truck-delivery"></i> Pedido ${cuandoPedido(pd.fecha, 'del')}</b><span class="chip">esperando</span></div>
+    <div style="margin-top:6px">${pd.items.map(it => `<div class="row" style="padding:4px 0"><span>${cant(it.paquetes)} ${esc(corto(it.nombre))}${it.nueva ? ' <span class="k">(nueva)</span>' : ''}</span><span class="k">${plata(it.paquetes * it.costo)}</span></div>`).join('')}</div>
+    ${filaBal('Pagaste', plata(pd.total), '', true)}${filaBal('Kilos', cant(pd.kg) + ' kg')}
+    <div class="k" style="margin-top:6px">${textoPago(pd)}.${pd.pago !== 'negocio' ? ' Cuando cargues el lote se anota solo como plata que pusiste vos.' : ''}</div>
+    <button class="btn" data-a="planLlego" style="margin-top:12px"><i class="ti ti-package-import"></i> Ya llegó: cargar lote</button>
+    <div class="grid2" style="margin-top:8px"><button class="btn sec chico" data-a="planCambiarPedido"><i class="ti ti-pencil"></i> Cambiarlo</button><button class="btn sec chico" data-a="planBorrarPedido" style="color:var(--brasa)">Borrarlo</button></div>
+  </div>
+  <div class="k" style="margin:8px 2px 0">Al cargarlo vas a poder corregir lo que haya llegado distinto, agregar otra yerba y poner la fecha en que llegó.</div>`;
+}
+function hojaPedido(){
+  const r = planCalc(), f = planFoto(r);
+  if (!f.items.length) return toast('El armado todavía no tiene ninguna yerba');
+  if (f.items.some(it => it.nueva && !String(it.nombre).trim())) return toast('Ponele nombre a la yerba nueva');
+  let pago = 'negocio';
+  hoja(`<h2>Hice el pedido</h2><div class="stack">
+    <div class="k">${f.items.map(it => cant(it.paquetes) + ' ' + esc(corto(it.nombre))).join(' · ')}</div>
+    <div class="grid2"><label class="campo"><span>Lo que pagaste</span><input id="pTotal" inputmode="numeric" value="${f.total}"></label>
+    <label class="campo"><span>Fecha del pedido</span><input id="pFecha" type="date" value="${D.hoy}" max="${D.hoy}"></label></div>
+    <div class="opcion" style="margin-top:4px">¿Cómo lo pagaste?</div>
+    <div class="chips" id="pPago">
+      <button class="chip on" data-p="negocio">Con la plata del negocio</button>
+      <button class="chip" data-p="mio">Con mi plata</button>
+      <button class="chip" data-p="parte">Una parte cada uno</button></div>
+    <label class="campo" id="pParte" style="display:none"><span>Cuánto pusiste vos</span><input id="pPuso" inputmode="numeric" placeholder="100000"></label>
+    <div class="k" id="pAyuda">Se descuenta de la caja del negocio. Si no alcanza, lo que falta queda como plata que pusiste vos.</div>
+    <button class="btn" id="pOk"><i class="ti ti-truck-delivery"></i> Guardar pedido</button><button class="btn sec" onclick="cerrarHoja()">Cancelar</button></div>`, () => {
+    const ayuda = { negocio: 'Se descuenta de la caja del negocio. Si no alcanza, lo que falta queda como plata que pusiste vos.',
+      mio: 'La caja del negocio no se toca: queda anotado que lo pusiste vos. Cuando te lo devuelvas, anotalo en Caja → «Saqué plata».',
+      parte: 'Lo que pusiste vos queda anotado como tuyo; el resto sale de la caja del negocio.' };
+    $('#pPago').querySelectorAll('[data-p]').forEach(b => b.onclick = () => {
+      pago = b.dataset.p; $('#pPago').querySelectorAll('[data-p]').forEach(x => x.classList.toggle('on', x === b));
+      $('#pParte').style.display = pago === 'parte' ? '' : 'none'; $('#pAyuda').textContent = ayuda[pago];
+    });
+    $('#pOk').onclick = () => {
+      const total = Number($('#pTotal').value.replace(/\D/g, ''));
+      if (!total) return toast('Poné lo que pagaste');
+      const puso = pago === 'mio' ? total : pago === 'parte' ? Number($('#pPuso').value.replace(/\D/g, '')) : 0;
+      if (pago === 'parte' && !(puso > 0 && puso < total)) return toast('Poné cuánto pusiste vos (menos que el total)');
+      PL = { pedido: Object.assign({}, f, { fecha: $('#pFecha').value || D.hoy, total, pago, puso }) };
+      planGuardarLocal(); planTab = 'pendiente'; cerrarHoja(); window.scrollTo(0, 0); pintar();
+      toast('Pedido guardado. Cuando te llegue, tocá «Ya llegó: cargar lote».');
+    };
+  });
 }
 function planPintarRes(){
   if (!$('#plRes')) return;
@@ -1281,7 +1337,7 @@ function hojaLote(pre){
       if (!total) return toast('Poné lo que pagaste por el lote');
       if (!its.length) return toast('Agregá cuántos paquetes trajo');
       $('#lOk').disabled = true;
-      try { const r = await llamar('nuevoLote', { fecha: $('#lFecha').value, proveedor: $('#lProv').value, total, items: its }); cerrarHoja(); if (pre && pre.alGuardar) pre.alGuardar(); toast('Lote ' + r.id + ' guardado' + (r.nuevos && r.nuevos.length ? '. Yerba nueva: ' + r.nuevos.join(', ') : '') + (r.control && r.control !== 'Completo' ? '. Revisá los costos' : '')); await recargar(); }
+      try { const r = await llamar('nuevoLote', { fecha: $('#lFecha').value, proveedor: $('#lProv').value, total, items: its }); const fLote = $('#lFecha').value; cerrarHoja(); if (pre && pre.alGuardar) await pre.alGuardar(r, fLote); toast('Lote ' + r.id + ' guardado' + (r.nuevos && r.nuevos.length ? '. Yerba nueva: ' + r.nuevos.join(', ') : '') + (r.control && r.control !== 'Completo' ? '. Revisá los costos' : '')); await recargar(); }
       catch (e) { $('#lOk').disabled = false; error(e); }
     };
   });
@@ -1420,24 +1476,28 @@ async function accion(a, el){
     case 'balVista': balVista = d.v; return pintar();
     case 'sub': sub = d.s || null; window.scrollTo(0, 0); return pintar();
     case 'iniVista': return cambiarIniVista(d.v);
-    case 'planComprar': {
-      const g = d.src === 'guardado' ? PL.guardado : planFoto(planCalc());
-      if (!g || !g.items.length) return toast('El armado todavía no tiene ninguna yerba');
-      if (g.items.some(it => it.nueva && !String(it.nombre).trim())) return toast('Ponele nombre a la yerba nueva');
+    case 'planTab': planTab = d.t; window.scrollTo(0, 0); return pintar();
+    case 'planPedir': return hojaPedido();
+    case 'planLlego': {
+      const pd = PL.pedido; if (!pd) return;
       const ult = D.lotes.length ? D.lotes[D.lotes.length - 1] : null;
-      return hojaLote({ items: planItemsLote(g.items), total: String(g.total), proveedor: ult && ult.proveedor ? ult.proveedor : '',
-        alGuardar: () => { PL = {}; try { localStorage.removeItem('yerba_plan'); } catch (e) {} sub = 'lotes'; } });
+      return hojaLote({ items: planItemsLote(pd.items), total: String(pd.total), proveedor: ult && ult.proveedor ? ult.proveedor : '',
+        alGuardar: async (r, fLote) => {
+          const ped = PL.pedido;
+          PL = {}; try { localStorage.removeItem('yerba_plan'); } catch (e) {} planTab = null; sub = 'lotes';
+          if (ped && ped.puso > 0) {
+            // El aporte va con la fecha del pedido (siempre antes del lote), así la caja del negocio queda como estaba.
+            const fa = ped.fecha < fLote ? ped.fecha : sumarDias(fLote, -1);
+            try { await llamar('movimientoCaja', { tipo: 'Aporte', monto: ped.puso, fecha: fa, detalle: 'Puse de mi bolsillo para el lote ' + (r && r.id ? r.id : 'nuevo') }); }
+            catch (e) { toast('El lote se guardó, pero no pude anotar lo que pusiste: anotalo en Caja → «Puse plata».'); }
+          }
+        } });
     }
-    case 'planGuardar': {
-      const f = planFoto(planCalc());
-      if (!f.items.length) return toast('El armado todavía no tiene ninguna yerba');
-      PL.guardado = f; planGuardarLocal(); window.scrollTo(0, 0); pintar(); return toast('Armado guardado. Cuando lo compres, tocá «Lo compré así».');
-    }
-    case 'planEditarGuardado': { const g = PL.guardado; if (!g) return; PL = Object.assign({}, g.plan || {}, { guardado: g }); planGuardarLocal(); return pintar(); }
-    case 'planBorrarGuardado': if (!confirm('¿Borrar el armado guardado?')) return; delete PL.guardado; planGuardarLocal(); return pintar();
+    case 'planCambiarPedido': { const pd = PL.pedido; if (!pd) return; PL = Object.assign({}, pd.plan || {}); planGuardarLocal(); planTab = 'armar'; toast('El pedido volvió a «Armar». Cuando esté, tocá «Hice el pedido» de nuevo.'); return pintar(); }
+    case 'planBorrarPedido': if (!confirm('¿Borrar el pedido pendiente?')) return; delete PL.pedido; planGuardarLocal(); planTab = 'armar'; return pintar();
     case 'planNueva': PL.nuevas = PL.nuevas || []; PL.nuevas.push({ nombre: '', pres: '1kg', costo: '', precio: '', fijo: '' }); planGuardarLocal(); return pintar();
     case 'planQuitarNueva': (PL.nuevas || []).splice(Number(d.j), 1); planGuardarLocal(); return pintar();
-    case 'planLimpiar': { const g = PL.guardado; PL = g ? { guardado: g } : {}; planGuardarLocal(); return pintar(); }
+    case 'planLimpiar': { const pd = PL.pedido; PL = pd ? { pedido: pd } : {}; planGuardarLocal(); return pintar(); }
     case 'mov': return hojaMov(d.t);
     case 'irCaja': return hojaMov('Aporte');
     case 'salir': if (!confirm('¿Cerrar sesión en este celular? Vas a tener que entrar con Google y poner el PIN de nuevo.')) return;
